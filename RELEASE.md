@@ -1,17 +1,9 @@
-# WFCompanion 0.1.13
+# WFCompanion 0.1.14
 
-Small follow-up release to validate the exact-base update path from 0.1.12.
-The installed version changes to 0.1.13; no game-addon or saved-data changes.
+Automatic update checks now run every five minutes while enabled, plus a check shortly after startup. Available updates appear as a persistent, non-blocking toast at the upper right of the companion's screen. Choose Update to download or Cancel to dismiss that version for the current session. Restart still requires confirmation.
 
-From installed 0.1.12, check for updates. The smaller download is about 4.6 MB
-(compared with the 38.1 MB full installer). Matching installations should select the
-smaller package. A modified, missing or incompatible base uses the full installer.
-The full installer remains available explicitly in Settings and on the release.
+Original gold-and-teal compass artwork now appears on the installer, application and shortcuts.
 
-Expected test: notification, download progress, confirmation, automatic restart,
-Installed version: 0.1.13, and preserved settings. Smaller updates perform a
-backup and startup check, so installation may take longer than downloading.
+Existing installations on older versions use their existing notification behaviour for this update. After installing 0.1.14, the new toast will appear when a later stable release becomes available.
 
-Installer signing is still pending. Forced power-loss recovery has not been
-validated; keep the full installer available for repair. Recovery backups remain
-under the companion data folder's updates directory.
+An exact-base smaller update from 0.1.13 is provided when eligible; all other installations use the full installer. Saved settings and records are preserved. No addon changes. Signing remains pending.

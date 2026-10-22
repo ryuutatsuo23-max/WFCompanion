@@ -48,6 +48,30 @@ class UpdateFlowTests(unittest.TestCase):
                     panel.install();start.assert_not_called();self.assertIsNone(panel.installer)
             finally:host.close();self.app.processEvents()
 
+    def test_periodic_checks_and_persistent_toast(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            host=Companion(Path(tmp));host.testing=True
+            panel=host.updates_panel
+            try:
+                with patch.object(panel,'check') as check:
+                    panel.toggle(True)
+                    self.assertEqual(panel.timer.interval(),300000)
+                    panel.timer.timeout.emit()
+                    self.assertEqual(check.call_count,2)
+                    panel.toggle(False);panel.timer.timeout.emit()
+                    self.assertEqual(check.call_count,2)
+                panel.checked(releases.candidate(release()),'');self.app.processEvents()
+                toast=panel.prompt
+                self.assertFalse(toast.isModal())
+                area=host.screen().availableGeometry()
+                self.assertTrue(area.contains(toast.geometry()))
+                self.assertLessEqual(abs(toast.geometry().right()-(area.right()-16)),2)
+                self.assertTrue(toast.isVisible())
+                with patch.object(panel,'download') as download:
+                    toast.update_button.click();download.assert_called_once_with(True)
+                self.assertFalse(toast.isVisible())
+            finally:host.close();self.app.processEvents()
+
     def test_windows_dialog_background_matches_theme(self):
         previous=self.app.style().objectName();self.app.setStyle('Windows')
         try:

@@ -1,8 +1,8 @@
 """Background update checks, visible progress and confirmed update/restart."""
 import sys
 import hashlib
-from PySide6.QtCore import QObject,QRunnable,QThreadPool,QTimer,Signal
-from PySide6.QtWidgets import QCheckBox,QMessageBox,QProgressBar
+from PySide6.QtCore import QObject,QRunnable,QThreadPool,QTimer,Signal,Qt
+from PySide6.QtWidgets import QCheckBox,QMessageBox,QProgressBar,QDialog,QVBoxLayout,QApplication
 from app import Panel,label,row
 from storage import write_json
 import release_updates as releases
@@ -19,6 +19,29 @@ class Job(QRunnable):
     def run(self):
         try:self.result.done.emit(self.work(),'')
         except Exception as exc:self.result.done.emit(None,str(exc))
+
+
+class UpdateToast(QDialog):
+    """Persistent, non-modal notification on the companion's screen."""
+    def __init__(self,host,version,download):
+        super().__init__(host,Qt.WindowType.Tool|Qt.WindowType.FramelessWindowHint)
+        self.setWindowTitle('WFCompanion update available')
+        self.setModal(False)
+        self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
+        bg=host.colors[1]
+        self.setStyleSheet(f'QDialog {{ background-color: {bg}; border: 1px solid #bca56c; }}')
+        box=QVBoxLayout(self);box.setContentsMargins(18,16,18,16)
+        box.addWidget(label('WFCompanion update available'))
+        message=label('Version '+version+' is ready. Download while you keep working. Restart requires confirmation.')
+        message.setWordWrap(True);box.addWidget(message)
+        self.update_button=host.button('Update',lambda:(self.accept(),download()))
+        self.cancel_button=host.button('Cancel',self.reject)
+        box.addWidget(row(self.update_button,self.cancel_button))
+        area=(host.screen() or QApplication.primaryScreen()).availableGeometry()
+        self.setFixedWidth(min(390,max(200,area.width()-32)))
+        self.adjustSize()
+        self.move(area.right()-self.width()-15,area.top()+16)
+
 
 
 class Updates(Panel):
@@ -41,8 +64,10 @@ class Updates(Panel):
         self.full_button=host.button('Download full installer instead',self.download_full);self.full_button.setEnabled(False)
         self.box.addWidget(self.full_button)
         self.progress=QProgressBar();self.progress.setRange(0,100);self.progress.hide();self.box.addWidget(self.progress)
-        self.timer=QTimer(self);self.timer.setInterval(6*60*60*1000);self.timer.timeout.connect(self.check)
-        if self.settings['automatic']:self.timer.start();QTimer.singleShot(5000,self.check)
+        self.timer=QTimer(self);self.timer.setInterval(5*60*1000);self.timer.timeout.connect(self.auto_check)
+        if self.settings['automatic']:self.timer.start();QTimer.singleShot(5000,self.auto_check)
+    def auto_check(self):
+        if self.settings['automatic'] and not self.installer:self.check()
     def toggle(self,value):
         try:write_json(self.path,{'automatic':value})
         except (ValueError,OSError) as exc:self.notice.setText(str(exc));return
@@ -67,18 +92,16 @@ class Updates(Panel):
         self.notice.setText('Update check unavailable; your installed version still works.' if error else 'No newer stable release available.' if not result else 'Stable update available: '+result['version'])
         if result and result['version'] not in self.notified:
             self.notified.add(result['version'])
-            box=QMessageBox(self.host);box.setWindowTitle('WFCompanion update available')
-            box.setText('Version '+result['version']+' is available. Download it now? You can keep working during the download. Restart requires your confirmation.')
-            accept=box.addButton('Download update',QMessageBox.ButtonRole.AcceptRole)
-            box.addButton('Cancel',QMessageBox.ButtonRole.RejectRole)
-            box.finished.connect(lambda _:self.download(True) if box.clickedButton()==accept else None)
-            self.prompt=box;box.open()
+            if self.prompt:self.prompt.close()
+            self.prompt=UpdateToast(self.host,result['version'],lambda:self.download(True))
+            self.prompt.show()
     def show_progress(self,received,total):
         percent=min(100,received*100//max(1,total))
         self.progress.setValue(percent)
         self.notice.setText(f'Downloading update: {percent}% ({received/1048576:.1f} / {total/1048576:.1f} MB)')
     def download(self,auto_install=False):
         if self.busy or not self.release:return
+        if self.prompt:self.prompt.close()
         self.auto_install=auto_install;self.installer=None;self.progress.setValue(0);self.progress.show()
         self.notice.setText('Connecting to download…')
         release=dict(self.release)
