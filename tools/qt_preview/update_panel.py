@@ -30,7 +30,8 @@ class Updates(Panel):
             try:
                 raw=json.loads(self.path.read_text());self.settings={'automatic':raw['automatic']} if type(raw.get('automatic')) is bool else self.settings
             except (ValueError,OSError):pass
-        self.notice=label(f'Version {releases.VERSION} Â· stable releases only. No character data is sent.');self.box.addWidget(self.notice)
+        self.version_label=label(f'Installed version: {releases.VERSION}');self.box.addWidget(self.version_label)
+        self.notice=label('Stable releases only. No character data is sent.');self.box.addWidget(self.notice)
         self.automatic=QCheckBox('Check for stable updates automatically');self.automatic.setChecked(self.settings['automatic']);self.automatic.toggled.connect(self.toggle)
         self.box.addWidget(self.automatic)
         self.download_button=host.button('Download update',lambda:self.download(True));self.download_button.setEnabled(False)
