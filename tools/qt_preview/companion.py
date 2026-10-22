@@ -14,9 +14,9 @@ import sys
 import tempfile
 import time
 import wave
-from PySide6.QtCore import Qt, QTimer, QUrl, QEvent
+from PySide6.QtCore import Qt, QTimer, QUrl, QEvent, QPoint
 from PySide6.QtGui import QFont
-from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QScrollArea, QStackedWidget, QLabel, QProgressBar, QMessageBox, QAbstractScrollArea, QCheckBox
+from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QScrollArea, QStackedWidget, QLabel, QProgressBar, QMessageBox, QAbstractScrollArea, QCheckBox, QComboBox
 from app import Preview, Panel, Title, row, field, label
 from data import Data, STATE, import_legacy
 from fonts import Fonts
@@ -38,6 +38,20 @@ from character_overview import CharacterOverview
 from catalogue import ItemCatalogue
 from local_journal import LocalStore
 from window_placement import DEFAULT as WINDOW_DEFAULT, validate as validate_window, visible_rect
+
+
+class PagePicker(QComboBox):
+    """Keep navigation below its control instead of centering the selected row."""
+    def showPopup(self):
+        super().showPopup()
+        popup = self.view().window()
+        anchor = self.mapToGlobal(QPoint(0, self.height()))
+        area = self.screen().availableGeometry()
+        height = min(popup.height(), area.height())
+        width = min(popup.width(), area.width())
+        x = max(area.left(), min(anchor.x(), area.right() - width + 1))
+        y = max(area.top(), min(anchor.y(), area.bottom() - height + 1))
+        popup.setGeometry(x, y, width, height)
 
 
 class Companion(SettingsMixin, Preview):
@@ -82,7 +96,10 @@ class Companion(SettingsMixin, Preview):
         header.addWidget(field('Character profile',self.character));header.addWidget(field('Playstyle',self.preset))
         header.addStretch(1)
         self.navigation=row();header.addWidget(self.navigation,0,Qt.AlignmentFlag.AlignTop)
-        self.page_picker=self.combo([],self.show_page);self.page_picker.setMinimumWidth(220)
+        self.page_picker=PagePicker();self.page_picker.setMinimumWidth(220)
+        self.page_picker.setMaximumWidth(440)
+        self.page_picker.currentTextChanged.connect(self.page_picker.setToolTip)
+        self.page_picker.currentTextChanged.connect(self.show_page)
         self.navigation.layout().addWidget(field('Page',self.page_picker))
         layout.addWidget(self.character_info)
         self.pages=QStackedWidget(); layout.addWidget(self.pages,1)
@@ -99,6 +116,7 @@ class Companion(SettingsMixin, Preview):
         self.build_overview(self.page_layouts[0])
         self.gathering=add('Gathering',GatheringPage(self))
         self.page_layouts[TABS.index('Crafting')].addWidget(row(*[self.button(n,lambda name=n:self.show_craft(name)) for n in ('Queue','Recipe book','Shopping list')]))
+        self.page_layouts[TABS.index('Crafting')].addWidget(self.button('Cached professions', self.show_profession_observations))
         self.queue=add('Crafting',CraftEditor(self)); self.recipes=add('Crafting',CraftEditor(self,True)); self.shopping=add('Crafting',ShoppingPage(self))
         self.show_craft('Queue')
         self.wishlist_back=self.button('Back to wishlist',self.back_to_wishlist); self.wishlist_back.hide()
@@ -337,6 +355,22 @@ class Companion(SettingsMixin, Preview):
     def show_craft(self,name):
         for caption,page in [('Queue',self.queue),('Recipe book',self.recipes),('Shopping list',self.shopping)]: page.setVisible(caption==name)
 
+    def show_profession_observations(self, target=None):
+        from profession_observations import ObservationCache
+        from profession_observations_dialog import ProfessionObservationsDialog
+        if not hasattr(self, 'profession_observations'):
+            self.profession_observations = ObservationCache()
+        dialog = ProfessionObservationsDialog(self, self.profession_observations)
+        if target is not None:
+            index = next((i for i in range(dialog.character.count())
+                          if tuple(dialog.character.itemData(i)) == tuple(target)), -1)
+            if index < 0:
+                dialog.deleteLater()
+                return
+            dialog.character.setCurrentIndex(index)
+        dialog.exec(); dialog.deleteLater()
+        self.character_overview.refresh()
+
     def catalogue(self):
         if self.catalogue_db is None: self.catalogue_db=ItemCatalogue(self.data.directory)
         return self.catalogue_db
@@ -522,6 +556,8 @@ class Companion(SettingsMixin, Preview):
         widget.verticalHeader().setDefaultSectionSize(max(30,widget.fontMetrics().height()+12))
 
     def closeEvent(self,event):
+        if not self.testing and not self.close_behavior.allow_close():
+            event.ignore();return
         if not self.testing and self.data.dirty:
             if QMessageBox.question(self,'Unsaved applied records','Some applied records have not been saved. Close and discard unsaved changes?',QMessageBox.StandardButton.Discard|QMessageBox.StandardButton.Cancel,QMessageBox.StandardButton.Cancel)!=QMessageBox.StandardButton.Discard:
                 event.ignore(); return
@@ -530,6 +566,7 @@ class Companion(SettingsMixin, Preview):
             try: self.placement.save(dict(version=1,normal=[rect.width(),rect.height(),rect.x(),rect.y()],maximized=self.isMaximized()))
             except (ValueError,OSError): pass
         self.character_overview.game_data_monitor.set_enabled(False)
+        self.close_behavior.tray.hide()
         self.timer.stop()
         if self.catalogue_db: self.catalogue_db.close()
         if self.audio: self.audio.stop(); self.audio.setSource(QUrl())

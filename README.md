@@ -94,3 +94,8 @@ WFCompanion and its addons are free. This project is not affiliated with or
 endorsed by Blizzard Entertainment. World of Warcraft and Warcraft are trademarks
 or registered trademarks of Blizzard Entertainment, Inc. Third-party components
 remain subject to their own licences.
+
+## New in 0.1.18
+
+Character cards and a read-only cached professions journal are now available.
+See [release notes](RELEASE.md) for setup and saved-data limitations.

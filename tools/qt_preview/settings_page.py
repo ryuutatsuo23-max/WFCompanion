@@ -28,6 +28,16 @@ class SettingsMixin:
         self.startup_check=checkbox();startup.box.addWidget(self.startup_check)
         self.startup_status=label('Off by default. Changes apply immediately.');startup.box.addWidget(self.startup_status)
         self.startup_check.toggled.connect(self.change_windows_startup)
+        from close_behavior import CloseBehavior, CHOICES
+        self.close_behavior=CloseBehavior(self)
+        closing=Panel(self,'Closing the window');layout.addWidget(closing)
+        self.close_choice=self.combo(list(CHOICES),self.close_behavior.save)
+        self.close_status=label(self.close_behavior.store.error or 'Changes apply immediately. Tray mode keeps your session running.')
+        self.close_choice.blockSignals(True)
+        self.close_choice.setCurrentText(next(k for k,v in CHOICES.items() if v==self.close_behavior.store.data['action']))
+        self.close_choice.blockSignals(False)
+        closing.box.addWidget(field('When I close the window',self.close_choice))
+        closing.box.addWidget(self.close_status)
         from update_panel import Updates
         self.updates_panel=Updates(self);layout.addWidget(self.updates_panel)
         self.dirty_button=self.button('No unsaved settings',self.save_session)

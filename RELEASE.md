@@ -1,9 +1,25 @@
-# WF Companion 0.1.17
+# WF Companion 0.1.18
 
-A simpler everyday layout: main pages are in one Page dropdown at the right of the character/playstyle row, with the current page always visible. Inventory views have their own selector. Getting Started now lives in Settings. Developer-facing Qt/backend wording has been removed from the normal header and footer while saved/manual data limitations remain visible.
+Overview now has character cards, saved observation times and quick links to
+Bags & Bank and Professions. Technical information is tucked under Details.
 
-The visible name is now WF Companion. Existing installation, saved data and update identifiers are preserved.
+The new read-only professions journal reads your locally installed DataStore
+cache from an explicitly selected Beta account folder. It shows verified saved
+character names, skill cards and learned recipe IDs, with search, category filters
+and sortable columns. Recipe names and ingredients are not available yet.
 
-Optional Start with Windows is available in Settings and the first-run guide, off by default. It starts the installed companion when you sign in and is removed on uninstall. Settings changes apply immediately; setup-guide changes apply on Finish.
+Open Overview and choose **Read professions save** to select the account's
+SavedVariables folder. The professions cache lasts for the current session.
+Temporary preview profiles and links are not migrated into the installed app.
+Use **Review saved game data** for explicit character links. Existing inventory
+eligibility checks remain in place; linking alone does not enable blocked updates.
 
-This update uses the full installer because it adds a new application module. The usual confirmed update/restart flow preserves settings. No addon changes; the experimental character bridge and capture diagnostic are not included. Live inventory replacement remains blocked. Signing remains pending.
+Also includes clearer unchecked boxes, improved Page dropdown positioning, and a
+remembered close-to-tray or quit choice that can be changed in Settings.
+
+This release uses the full installer through the existing update/restart flow
+because it adds application modules. Settings remain outside the installation.
+No addon updates, game files, personal saves or third-party catalogue are bundled.
+The optional first-party addon packages are unchanged from 0.1.17. The optical
+bridge and capture backend are excluded. Saved observations are not live data.
+The installer remains unsigned while publisher signing is pending.

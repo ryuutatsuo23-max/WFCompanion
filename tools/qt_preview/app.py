@@ -686,6 +686,11 @@ class Preview(QWidget):
             QMessageBox QLabel {{ background-color: {panel}; color: {ink}; }}
             QScrollArea, QStackedWidget {{ background: transparent; border: none; }}
             QLabel, QCheckBox {{ background: transparent; color: {ink}; }}
+            QCheckBox {{ spacing: 8px; }}
+            QCheckBox::indicator {{ width: 16px; height: 16px; }}
+            QCheckBox::indicator:unchecked {{ background-color: {surface}; border: 2px solid {muted}; border-radius: 2px; }}
+            QCheckBox::indicator:unchecked:hover {{ border-color: {accent}; }}
+            QCheckBox::indicator:unchecked:disabled {{ border: 1px solid {muted}; }}
             QPushButton {{ padding: 9px 16px; color: {'#ffdd70' if self.wow else ink}; }}
             {button_style}
             QComboBox, QSpinBox {{ padding: 5px 9px; background: {surface}; color: {ink};

@@ -142,5 +142,5 @@ class Updates(Panel):
         from update_restart import start_update
         try:
             helper=start_update(self.installer,self.installer_hash,self.host.data.directory/'updates')
-            if not self.host.close():helper.terminate()
+            if not self.host.close_behavior.quit():helper.terminate()
         except (OSError,ValueError) as exc:self.notice.setText(str(exc))
