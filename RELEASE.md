@@ -1,9 +1,7 @@
-# WFCompanion 0.1.14
+# WFCompanion 0.1.15
 
-Automatic update checks now run every five minutes while enabled, plus a check shortly after startup. Available updates appear as a persistent, non-blocking toast at the upper right of the companion's screen. Choose Update to download or Cancel to dismiss that version for the current session. Restart still requires confirmation.
+Small update for testing 0.1.14's automatic update toast. Leave 0.1.14 open with automatic checks enabled; the notification should appear on its next five-minute check. Choose Update, then confirm the restart after download verification.
 
-Original gold-and-teal compass artwork now appears on the installer, application and shortcuts.
+Installer-created desktop and Start menu shortcuts now reference the bundled compass ICO directly, instead of the executable icon. This gives Windows a different icon source when replacing shortcuts that still show the old artwork. Manually created shortcuts are not rewritten. No uninstall or saved-data deletion is needed.
 
-Existing installations on older versions use their existing notification behaviour for this update. After installing 0.1.14, the new toast will appear when a later stable release becomes available.
-
-An exact-base smaller update from 0.1.13 is provided when eligible; all other installations use the full installer. Saved settings and records are preserved. No addon changes. Signing remains pending.
+Saved settings and records are preserved. No addon changes. The smaller update from an exact 0.1.14 installation and the full installer fallback are both available. Installers remain unsigned while signing is pending.
