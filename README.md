@@ -1,5 +1,7 @@
 # WFCompanion
 
+<img src="tools/distribution/public_art/wfcompanion-compass.png" alt="WFCompanion compass" width="128">
+
 A free, independent Windows companion and optional addons for World of Warcraft
 Forever. Keep character inventories, equipment, plans and wishlists together.
 
@@ -12,13 +14,23 @@ WoW is optional for offline companion use; addon installation requires a compati
 client folder containing Wow.exe. Close the game before installing addons.
 
 The welcome guide lets you choose Easy/Advanced mode, colours, text size and tabs.
-Desktop and Start menu shortcuts open the companion. Settings checks stable
-updates automatically; downloading and launching an update remain your choice.
-Close the companion before installing an update.
+Desktop and Start menu shortcuts open the companion. Saved preferences and records are kept during updates.
+
+## Updates
+
+Version 0.1.14 checks shortly after startup and every five minutes while automatic checks are enabled. A persistent toast appears at the upper right when a newer stable release is available. Choose **Update** or **Cancel**, or check manually in Settings. Cancelling dismisses that version for the current session.
+
+Downloads show progress. After verification, confirm **Update and restart**. The companion closes, applies the update and reopens without repeating the setup wizard. Save unfinished work first.
+
+Matching installations can download a smaller package containing changed files. Other versions or modified installations use the full installer automatically. **Download full installer instead** remains available in Settings. Smaller updates retain a recovery backup and run a startup check; the full installer is also available for repair after an interrupted update.
+
+Older versions keep their existing notification behaviour until updated. To test the 0.1.14 toast, a later stable release must become available.
 
 ## Appearance
 
-The current source adds Classic Fantasy (the default), Parchment and Midnight,
+The original gold-and-teal compass now appears on the installer, app and shortcuts. See [artwork provenance](tools/distribution/public_art/README.md).
+
+Choose Classic Fantasy (the default), Parchment and Midnight,
 plus simple Dark and Normal palettes. Original drawn borders and bundled
 OFL-licensed Cinzel/Lora fonts provide a fantasy appearance. Existing preferences
 are preserved. The window is named WFCompanion.
@@ -28,10 +40,16 @@ captured inventory records and manual plans remain separate. This public edition
 uses independently created graphics rather than game textures. The latest
 published stable release may be older than the source and CI build artifacts.
 
+## Game data
+
+The Core/Storage split still awaits live-client validation. Storage 0.7.0 data is accepted for review only; automatic count replacement remains blocked.
+
 Saved records are snapshots, not guaranteed current game state. Addons save data
 when WoW writes SavedVariables, normally at logout or /reload. No game actions are
 automated by the companion. The installer does not include personal captures,
 characters, plans or settings. Updates check GitHub over the network.
+
+## Uninstall
 
 Uninstall through Windows Installed apps or the Uninstall WFCompanion shortcut.
 The uninstaller offers to keep or delete companion data; keeping it is the default.
