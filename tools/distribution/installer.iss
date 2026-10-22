@@ -12,7 +12,7 @@
 #endif
 [Setup]
 AppId=WFCompanion
-AppName=WFCompanion
+AppName=WF Companion
 AppVersion={#Version}
 #ifdef PublicBuild
 InfoBeforeFile=public_notices\RUNTIME.md
@@ -47,23 +47,26 @@ Name: companion; Description: "Companion only"
 Name: recommended; Description: "Companion and Storage addon"
 Name: custom; Description: "Choose components"; Flags: iscustom
 [Components]
-Name: companion; Description: "WFCompanion (includes runtime)"; Types: companion recommended custom; Flags: fixed
+Name: companion; Description: "WF Companion (includes runtime)"; Types: companion recommended custom; Flags: fixed
 Name: storage; Description: "Forever Storage - bags and bank (includes required Core)"; Types: recommended
 Name: probe; Description: "Stress Probe - diagnostics (optional)"
 Name: display; Description: "Display Test - experimental combat display (optional)"
 [Files]
 Source: "{#Payload}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 [Tasks]
-Name: desktopicon; Description: "Create a desktop shortcut for WFCompanion"; GroupDescription: "Shortcuts:"
+Name: desktopicon; Description: "Create a desktop shortcut for WF Companion"; GroupDescription: "Shortcuts:"
 [Icons]
-Name: "{userprograms}\WFCompanion\Uninstall WFCompanion"; Filename: "{uninstallexe}"; IconFilename: "{app}\_internal\payload\branding\forever.ico"
-Name: "{app}\Uninstall WFCompanion"; Filename: "{uninstallexe}"; IconFilename: "{app}\_internal\payload\branding\forever.ico"
-Name: "{userprograms}\WFCompanion\WFCompanion"; Filename: "{app}\WFCompanion.exe"; WorkingDir: "{app}"; IconFilename: "{app}\_internal\payload\branding\forever.ico"; Comment: "WoW Forever companion - characters, inventory and wishlists"; AppUserModelID: "WFCompanion.Desktop"
+Name: "{userprograms}\WFCompanion\Uninstall WF Companion"; Filename: "{uninstallexe}"; IconFilename: "{app}\_internal\payload\branding\forever.ico"
+Name: "{app}\Uninstall WF Companion"; Filename: "{uninstallexe}"; IconFilename: "{app}\_internal\payload\branding\forever.ico"
+Name: "{userprograms}\WFCompanion\WF Companion"; Filename: "{app}\WFCompanion.exe"; WorkingDir: "{app}"; IconFilename: "{app}\_internal\payload\branding\forever.ico"; Comment: "WoW Forever companion - characters, inventory and wishlists"; AppUserModelID: "WFCompanion.Desktop"
 Name: "{userdesktop}\WF Companion"; Filename: "{app}\WFCompanion.exe"; WorkingDir: "{app}"; IconFilename: "{app}\_internal\payload\branding\forever.ico"; Comment: "Open the WoW Forever companion"; AppUserModelID: "WFCompanion.Desktop"; Tasks: desktopicon
 [InstallDelete]
+Type: files; Name: "{userprograms}\WFCompanion\WFCompanion.lnk"
+Type: files; Name: "{userprograms}\WFCompanion\Uninstall WFCompanion.lnk"
+Type: files; Name: "{app}\Uninstall WFCompanion.lnk"
 Type: files; Name: "{userdesktop}\WFCompanion.lnk"; Tasks: desktopicon
 [Run]
-Filename: "{app}\WFCompanion.exe"; Description: "Open WFCompanion"; Flags: postinstall nowait skipifsilent
+Filename: "{app}\WFCompanion.exe"; Description: "Open WF Companion"; Flags: postinstall nowait skipifsilent
 [Code]
 var
   ClientPage: TInputDirWizardPage;
@@ -74,7 +77,7 @@ var
 function InitializeUninstall: Boolean;
 begin
   Result := True;
-  DeleteCompanionData := SuppressibleMsgBox('Also delete your saved WFCompanion data on this PC?' + #13#10 + #13#10 +
+  DeleteCompanionData := SuppressibleMsgBox('Also delete your saved WF Companion data on this PC?' + #13#10 + #13#10 +
     'Yes permanently removes companion characters, plans, settings, imported records and local backups.' + #13#10 +
     'No keeps them for a later reinstall (recommended).' + #13#10 + #13#10 +
     'WoW addons and their SavedVariables are never removed.', mbConfirmation, MB_YESNO or MB_DEFBUTTON2, IDNO) = IDYES;
@@ -107,6 +110,7 @@ end;
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 var DataRoot: String; ParentInfo: TFindRec; SafeParent: Boolean;
 begin
+  if CurUninstallStep = usUninstall then RegDeleteValue(HKCU, 'Software\Microsoft\Windows\CurrentVersion\Run', 'WFCompanion');
   if (CurUninstallStep = usPostUninstall) and DeleteCompanionData then begin
     DataRoot := ExpandConstant('{localappdata}\WoWForever\Companion');
     SafeParent := True;

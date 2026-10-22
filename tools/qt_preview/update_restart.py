@@ -59,7 +59,7 @@ try {
     if ($config.patch) { Set-Content -LiteralPath $config.fallback -Value $config.backup }
     $failure | Set-Content -LiteralPath $config.error
     Add-Type -AssemblyName System.Windows.Forms
-    [System.Windows.Forms.MessageBox]::Show($failure, 'WFCompanion update needs attention') | Out-Null
+    [System.Windows.Forms.MessageBox]::Show($failure, 'WF Companion update needs attention') | Out-Null
 }
 '''
 

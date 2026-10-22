@@ -26,12 +26,12 @@ class UpdateToast(QFrame):
     def __init__(self,host,version,download):
         super().__init__(host)
         self.setObjectName('updateToast')
-        self.setWindowTitle('WFCompanion update available')
+        self.setWindowTitle('WF Companion update available')
         self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
         bg=host.colors[1]
         self.setStyleSheet(f'QFrame#updateToast {{ background-color: {bg}; border: 1px solid #bca56c; }}')
         box=QVBoxLayout(self);box.setContentsMargins(18,16,18,16)
-        box.addWidget(label('WFCompanion update available'))
+        box.addWidget(label('WF Companion update available'))
         message=label('Version '+version+' is ready. Download while you keep working. Restart requires confirmation.')
         message.setWordWrap(True);box.addWidget(message)
         self.update_button=host.button('Update',lambda:(self.accept(),download()))

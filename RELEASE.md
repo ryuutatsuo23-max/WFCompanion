@@ -1,9 +1,9 @@
-# WFCompanion 0.1.16
+# WF Companion 0.1.17
 
-Update notifications now stay inside the companion's upper-right corner. They follow resizing and hide with the app, remaining until Update or Cancel. Automatic checks continue every five minutes when enabled.
+A simpler everyday layout: main pages are in one Page dropdown at the right of the character/playstyle row, with the current page always visible. Inventory views have their own selector. Getting Started now lives in Settings. Developer-facing Qt/backend wording has been removed from the normal header and footer while saved/manual data limitations remain visible.
 
-The desktop shortcut is now labelled **WF Companion**, allowing Windows to wrap at the space instead of splitting the name. When desktop shortcut creation is enabled, setup replaces the old WFCompanion shortcut. The application name and saved-data location are unchanged.
+The visible name is now WF Companion. Existing installation, saved data and update identifiers are preserved.
 
-Saved settings and records are preserved. No addon changes. An exact-base smaller update from 0.1.15 and the full installer fallback are provided. Installers remain unsigned while signing is pending.
+Optional Start with Windows is available in Settings and the first-run guide, off by default. It starts the installed companion when you sign in and is removed on uninstall. Settings changes apply immediately; setup-guide changes apply on Finish.
 
-The notification offering this update uses your currently installed version's behaviour. After installing 0.1.16, future notifications use the corrected in-app placement.
+This update uses the full installer because it adds a new application module. The usual confirmed update/restart flow preserves settings. No addon changes; the experimental character bridge and capture diagnostic are not included. Live inventory replacement remains blocked. Signing remains pending.

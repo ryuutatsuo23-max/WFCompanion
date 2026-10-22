@@ -48,7 +48,7 @@ class Companion(SettingsMixin, Preview):
         self.ready=False; self.testing=False; self.audio=None; self.audio_temp=None
         self.wishlist_return=None  # Session-only navigation; never a draft/save snapshot.
         super().__init__()
-        self.setWindowTitle('WFCompanion')
+        self.setWindowTitle('WF Companion')
         self.ready=True
         self.placement=LocalStore(directory,'window_placement.json',WINDOW_DEFAULT,validate_window)
         rect=self.placement.data['normal']
@@ -61,7 +61,8 @@ class Companion(SettingsMixin, Preview):
         from first_run import show_if_needed
         QTimer.singleShot(0, lambda: show_if_needed(self))
         errors=self.data.errors()
-        self.banner.setText('Offline · '+ ('Saved-file errors: '+' | '.join(errors) if errors else 'Simulated combat and manual character plans · Qt data copy'))
+        self.banner.setText('Saved-file errors: '+' | '.join(errors) if errors else '')
+        self.banner.setVisible(bool(errors))
         self.log('Session','Started','Offline. No game, screen, network or input backend.')
 
     def build(self):
@@ -72,12 +73,18 @@ class Companion(SettingsMixin, Preview):
         self.settings.update(version=5,overview_visible='Overview' not in self.settings['hidden'])
         self.saved=deepcopy(self.settings); self.qt_settings=deepcopy(self.data.qt.data); self.saved_qt=deepcopy(self.qt_settings)
         layout=QVBoxLayout(self); layout.setContentsMargins(16,12,16,12)
-        layout.addWidget(Title(self,'WoW Forever'))
+        layout.addWidget(Title(self,'WF Companion'))
         self.banner=label('Offline companion'); layout.addWidget(self.banner)
         self.character=self.combo([],lambda _:self.switch_character(self.character.currentData()))
         self.preset=self.combo(PRESETS,self.switch_preset)
-        self.character_info=QLabel(''); layout.addWidget(row(field('Character profile',self.character),field('Playstyle',self.preset),self.character_info))
-        self.navigation=row(); layout.addWidget(self.navigation)
+        self.character_info=QLabel('')
+        header=QHBoxLayout();layout.addLayout(header)
+        header.addWidget(field('Character profile',self.character));header.addWidget(field('Playstyle',self.preset))
+        header.addStretch(1)
+        self.navigation=row();header.addWidget(self.navigation,0,Qt.AlignmentFlag.AlignTop)
+        self.page_picker=self.combo([],self.show_page);self.page_picker.setMinimumWidth(220)
+        self.navigation.layout().addWidget(field('Page',self.page_picker))
+        layout.addWidget(self.character_info)
         self.pages=QStackedWidget(); layout.addWidget(self.pages,1)
         self.nav_buttons={name:self.button(name,lambda n=name:self.show_page(n)) for name in TABS}
         self.overview_button=self.nav_buttons['Overview']; self.settings_button=self.nav_buttons['Settings']
@@ -103,8 +110,11 @@ class Companion(SettingsMixin, Preview):
         self.wishlist_destination.linkActivated.connect(lambda _:self.back_to_wishlist())
         self.wishlist_destination.installEventFilter(self)
         self.wishlist_destination.setMaximumWidth(440); self.wishlist_destination.hide()
-        self.page_layouts[TABS.index('Inventory & Bank')].addWidget(row(self.wishlist_back,self.wishlist_destination,self.button('Selected character',lambda:self.show_inventory_section(False)),self.button('All characters',lambda:self.show_inventory_section(True))))
-        self.page_layouts[TABS.index('Inventory & Bank')].addWidget(self.button('Saved addon inventory',self.show_observed_inventory))
+        self.inventory_scope=self.combo(['Selected character','All characters'],lambda text:self.show_inventory_section(text=='All characters'))
+        inventory_tools=QWidget();inventory_tools.box=QVBoxLayout(inventory_tools);inventory_tools.box.setContentsMargins(8,4,8,4)
+        inventory_tools.box.addWidget(row(field('View',self.inventory_scope),self.button('Saved addon inventory',self.show_observed_inventory)))
+        inventory_tools.box.addWidget(row(self.wishlist_back,self.wishlist_destination))
+        self.page_layouts[TABS.index('Inventory & Bank')].addWidget(inventory_tools)
         self.inventory_page=add('Inventory & Bank',StockPage(self))
         self.alt_inventory=AltInventoryPage(self); self.page_layouts[TABS.index('Inventory & Bank')].addWidget(self.alt_inventory)
         self.show_inventory_section(False)
@@ -151,11 +161,11 @@ class Companion(SettingsMixin, Preview):
         return super().eventFilter(watched,event)
 
     def build_overview(self,layout):
-        welcome=Panel(self,'Getting started');layout.addWidget(welcome)
-        welcome.box.addWidget(label('1. Choose your settings.  2. Plan with the selected character.  3. Review game data when you have a saved capture.'))
+        welcome=Panel(self,'Getting started');self.getting_started=welcome
+        welcome.box.addWidget(label('Choose your preferences and connect saved game data here.'))
         self.installation_notice=label('');welcome.box.addWidget(self.installation_notice)
         self.installation_notice.setTextFormat(Qt.TextFormat.PlainText)
-        welcome.box.addWidget(label('Bags and bank are checked separately. A bank you have not opened is unknown, not empty. Storage 0.7.0 saves can be reviewed; automatic count updates await live validation.'))
+        welcome.box.addWidget(label('Saved bags and bank records may be from different times. An unopened bank is unknown. Automatic inventory updates are not enabled yet.'))
         welcome.box.addWidget(row(self.button('Setup guide',self.open_setup_guide),
                                  self.button('Review game data',lambda:self.character_overview.check_game_data()),
                                  self.button('Check game folders',self.refresh_installation_status)))
@@ -221,7 +231,7 @@ class Companion(SettingsMixin, Preview):
         try:
             self.data.playstyles.select(char,name,persist=char in {p.id for p in self.data.saved_profiles})
         except (ValueError,OSError) as error:
-            self.gear_page.message(error); self.banner.setText(str(error)); self.sync_preset(); return False
+            self.gear_page.message(error); self.banner.setText(str(error)); self.banner.show(); self.sync_preset(); return False
         self.gear_page.restore(char); self.playstyle_page.restore(char); self.sync_preset()
         return True
 
@@ -236,6 +246,7 @@ class Companion(SettingsMixin, Preview):
         dialog=WishlistCopyDialog(self); dialog.exec(); dialog.deleteLater()
 
     def show_inventory_section(self,all_characters):
+        self.inventory_scope.blockSignals(True);self.inventory_scope.setCurrentIndex(int(all_characters));self.inventory_scope.blockSignals(False)
         self.inventory_page.setVisible(not all_characters); self.alt_inventory.setVisible(all_characters)
 
     def show_observed_inventory(self):
@@ -300,17 +311,17 @@ class Companion(SettingsMixin, Preview):
             if current==self.data.profile_bytes and not self.data.profile_store.error:
                 try:
                     self.data.profile_store.save(self.data.saved_profiles,id); self.data.profile_bytes=self.data.profile_store.path.read_bytes()
-                except (ValueError,OSError) as e: self.banner.setText(str(e))
+                except (ValueError,OSError) as e: self.banner.setText(str(e)); self.banner.show()
 
     def rebuild_navigation(self):
         flow=self.navigation.layout()
-        while flow.count(): flow.takeAt(0)
-        for name in self.ordered_tabs():
-            b=self.nav_buttons[name]; visible=name=='Settings' or name not in self.settings['hidden']; b.setVisible(visible)
-            if visible: flow.addWidget(b)
-        flow.invalidate()
+        for button in self.nav_buttons.values():button.hide()
         current=next((n for n,s in self.scrollers.items() if s==self.pages.currentWidget()),'Overview')
-        if current in self.settings['hidden']: self.show_page('Settings')
+        names=[n for n in self.ordered_tabs() if n=='Settings' or n not in self.settings['hidden']]
+        self.page_picker.blockSignals(True);self.page_picker.clear();self.page_picker.addItems(names)
+        self.page_picker.setCurrentText(current if current in names else 'Settings');self.page_picker.blockSignals(False)
+        flow.invalidate()
+        self.show_page(self.page_picker.currentText())
 
     def show_page(self,name):
         if name in self.scrollers:
@@ -318,6 +329,10 @@ class Companion(SettingsMixin, Preview):
             # Cross-links may open a hidden page for this visit without changing
             # the saved visible-tab choices or destroying any drafts.
             self.pages.setCurrentWidget(self.scrollers[name])
+            self.page_picker.blockSignals(True)
+            if self.page_picker.findText(name)<0:self.page_picker.addItem(name)
+            self.page_picker.setCurrentText(name);self.page_picker.blockSignals(False)
+            for caption,button in self.nav_buttons.items():button.setChecked(caption==name)
 
     def show_craft(self,name):
         for caption,page in [('Queue',self.queue),('Recipe book',self.recipes),('Shopping list',self.shopping)]: page.setVisible(caption==name)
@@ -420,7 +435,7 @@ class Companion(SettingsMixin, Preview):
         if self.pages.currentWidget()==self.scrollers['Party & Trackers']: self.tracker_page.refresh()
         names={p.id:p.name for p in self.data.profiles}
         dirty=', '.join(sorted(key if isinstance(key,str) else f'{key[0]} · {names.get(key[1],"Character")} · {key[2]}' for key in self.data.dirty))
-        self.footer.setText('Offline · '+('Applied changes need saving: '+dirty if dirty else 'Simulated data · No input backend'))
+        self.footer.setText('Changes need saving: '+dirty if dirty else 'Saved on this PC')
 
     def toggle_demo(self):
         self.running_demo=not self.running_demo; self.demo_started=time.monotonic()

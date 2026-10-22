@@ -23,7 +23,7 @@ class Fonts:
 
     def status(self):
         if all(f in self.available for f in PUBLIC_FILES):
-            return 'Cinzel and Lora are bundled under the SIL Open Font License. Fonts are loaded only inside WFCompanion.'
+            return 'Cinzel and Lora are bundled under the SIL Open Font License. Fonts are loaded only inside WF Companion.'
         missing=[f for f in FILES if f not in self.available]
         return ('WoW role fonts: Friz Quadrata UI · Arial Narrow tables · Morpheus titles · Skurri HP. Loaded privately.' if not missing else
                 'Unavailable fonts: '+', '.join(missing)+'. Your selected standard font is used as a fallback.')

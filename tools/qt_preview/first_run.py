@@ -15,7 +15,7 @@ class SetupGuide(QWizard):
         self.setWizardStyle(QWizard.WizardStyle.ClassicStyle)
         self.setPalette(host.palette())
         self.setStyleSheet(host.styleSheet() + f'QWizard, QWizardPage {{ background: {host.colors[1]}; color: {host.colors[3]}; }}')
-        self.setWindowTitle('Welcome to WFCompanion')
+        self.setWindowTitle('Welcome to WF Companion')
         self.setMinimumSize(580, 420)
         self.resize(640, 620)
         self.setButtonText(QWizard.WizardButton.CancelButton, 'Set up later')
@@ -47,6 +47,8 @@ class SetupGuide(QWizard):
         self.size.currentTextChanged.connect(self.preview_size)
         self.theme.currentTextChanged.connect(self.preview_appearance)
         self.artwork.toggled.connect(self.preview_appearance)
+        from windows_startup import checkbox
+        self.startup=checkbox();form.addRow(self.startup)
         self.addPage(page)
         tabs = QWizardPage(); tabs.setTitle('Choose your tabs')
         tabs_layout = QVBoxLayout(tabs)
@@ -61,7 +63,7 @@ class SetupGuide(QWizard):
         self.add_text_page('Getting your game data',
             'Start with a character in Overview, then browse Inventory & Bank or make a gear wishlist.\n\n'
             'When WoW Forever is available, install Forever Storage with Core using the installer. The addons collect data while you play, even when this companion is closed.\n\n'
-            'Use /reload or log out normally to save addon data. In the companion, connect the saved addon file through Overview. An unopened bank remains unknown.\n\n'
+            'Use /reload or log out normally to save addon data. In the companion, connect the saved addon file through Settings. An unopened bank remains unknown.\n\n'
             'No game installation is needed today. Your manual notes and plans stay on this PC.')
         self.apply_guide_style()
 
@@ -111,6 +113,12 @@ class SetupGuide(QWizard):
         host.qt_settings['experience_mode'] = self.mode.currentText()
         host.apply_appearance(); host.sync_controls()
         if host.save_session():
+            from windows_startup import set_enabled
+            try:set_enabled(self.startup.isChecked())
+            except OSError as exc:
+                from PySide6.QtWidgets import QMessageBox
+                QMessageBox.warning(self,'Windows startup',str(exc));return
+            host.startup_check.blockSignals(True);host.startup_check.setChecked(self.startup.isChecked());host.startup_check.blockSignals(False)
             host.show_page(next((name for name in TABS if name not in host.settings['hidden']), 'Settings')); super().accept()
         else:
             from PySide6.QtWidgets import QMessageBox

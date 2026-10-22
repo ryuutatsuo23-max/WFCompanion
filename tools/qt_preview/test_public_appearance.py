@@ -16,7 +16,7 @@ class PublicAppearanceTests(unittest.TestCase):
     def test_bundled_fonts_preview_cancel_and_save(self):
         with tempfile.TemporaryDirectory() as tmp:
             host=Companion(Path(tmp));host.testing=True;host.updates_panel.timer.stop()
-            self.assertEqual(host.windowTitle(),'WFCompanion')
+            self.assertEqual(host.windowTitle(),'WF Companion')
             self.assertEqual(host.settings['theme'],'Classic Fantasy')
             self.assertFalse(hasattr(host,'skin'))
             self.assertIn('Cinzel',host.fonts.available)

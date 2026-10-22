@@ -10,11 +10,24 @@ TABS=('Overview','Gathering','Crafting','Inventory & Bank','Gear wishlist','Prof
 
 
 class SettingsMixin:
+    def change_windows_startup(self,value):
+        from windows_startup import set_enabled,enabled
+        try:
+            set_enabled(value);self.startup_status.setText('Starts when you sign in.' if value else 'Automatic startup is off.')
+        except OSError as exc:
+            self.startup_check.blockSignals(True);self.startup_check.setChecked(not value);self.startup_check.blockSignals(False)
+            self.startup_status.setText('Could not change Windows startup: '+str(exc))
+
     def theme_choices(self):
         return companion_themes(self.settings['theme'])
 
     def build_settings(self,layout):
-        layout.addWidget(self.button('Open setup guide',self.open_setup_guide),0,Qt.AlignmentFlag.AlignLeft)
+        layout.addWidget(self.getting_started)
+        from windows_startup import checkbox
+        startup=Panel(self,'Windows startup');layout.addWidget(startup)
+        self.startup_check=checkbox();startup.box.addWidget(self.startup_check)
+        self.startup_status=label('Off by default. Changes apply immediately.');startup.box.addWidget(self.startup_status)
+        self.startup_check.toggled.connect(self.change_windows_startup)
         from update_panel import Updates
         self.updates_panel=Updates(self);layout.addWidget(self.updates_panel)
         self.dirty_button=self.button('No unsaved settings',self.save_session)

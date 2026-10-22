@@ -15,7 +15,7 @@ def render(folder):
     panel=Image.new('RGB',(328,720),'#142a36');panel.paste(icon,(36,80),icon)
     d=ImageDraw.Draw(panel)
     font=ImageFont.truetype('C:/Windows/Fonts/segoeui.ttf',28)
-    d.text((164,375),'WFCompanion',font=font,anchor='mm',fill='#dfbd70')
+    d.text((164,375),'WF Companion',font=font,anchor='mm',fill='#dfbd70')
     font=ImageFont.truetype('C:/Windows/Fonts/segoeui.ttf',17)
     for y,line in [(450,'Your characters.'),(478,'Your adventures.'),(506,'Always within reach.')]:
         d.text((164,y),line,font=font,anchor='mm',fill='#e5eef1')

@@ -1,4 +1,4 @@
-# WFCompanion
+# WF Companion
 
 <img src="tools/distribution/public_art/wfcompanion-compass.png" alt="WFCompanion compass" width="128">
 
@@ -25,6 +25,10 @@ Downloads show progress. After verification, confirm **Update and restart**. The
 Matching installations can download a smaller package containing changed files. Other versions or modified installations use the full installer automatically. **Download full installer instead** remains available in Settings. Smaller updates retain a recovery backup and run a startup check; the full installer is also available for repair after an interrupted update.
 
 Older versions keep their existing notification behaviour until updated. To test the 0.1.14 toast, a later stable release must become available.
+
+## Everyday layout
+
+Use the **Page** dropdown beside character/playstyle controls to navigate. Its label shows the current page. Getting Started and the setup guide are in Settings. Optional **Start with Windows** is available there and in the welcome guide, off by default; it starts the installed app when you sign in.
 
 ## Appearance
 
