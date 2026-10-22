@@ -48,7 +48,7 @@ class Companion(SettingsMixin, Preview):
         self.ready=False; self.testing=False; self.audio=None; self.audio_temp=None
         self.wishlist_return=None  # Session-only navigation; never a draft/save snapshot.
         super().__init__()
-        self.setWindowTitle('WoW Forever · Qt Companion · Offline')
+        self.setWindowTitle('WFCompanion')
         self.ready=True
         self.placement=LocalStore(directory,'window_placement.json',WINDOW_DEFAULT,validate_window)
         rect=self.placement.data['normal']
@@ -472,8 +472,12 @@ class Companion(SettingsMixin, Preview):
     def apply_appearance(self):
         fallback=self.settings['font_family']; roles=self.qt_settings['classic_fonts']
         self.appearance_font_family=self.fonts.family('Friz Quadrata TT',fallback) if roles else self.fonts.family(self.qt_settings['font_override'],fallback)
+        original_theme=self.settings['theme'] in ('Classic Fantasy','Parchment','Midnight')
+        if original_theme and roles:
+            self.appearance_font_family=self.fonts.family('Lora',fallback)
         super().apply_appearance()
         title=self.fonts.family('Morpheus',fallback) if roles else self.appearance_font_family
+        if original_theme: title=self.fonts.family('Cinzel',fallback)
         numbers=self.fonts.family('Skurri',fallback) if roles else self.appearance_font_family
         size=self.settings['text_size']
         for widget in self.findChildren(Title): widget.setStyleSheet(f'font-family: "{title}"; font-size: {size+2}pt;'); widget.updateGeometry()
@@ -484,6 +488,7 @@ class Companion(SettingsMixin, Preview):
 
     def style_table(self,widget):
         family=self.fonts.family('Arial Narrow',self.settings['font_family']) if self.qt_settings['classic_fonts'] else self.appearance_font_family
+        if self.original_theme: family=getattr(self,'appearance_font_family',self.fonts.family('Lora',self.settings['font_family']))
         widget.setStyleSheet(f'QTableWidget, QHeaderView {{font-family: "{family}";font-size: {self.settings["text_size"]}pt;}}')
         widget.fit_headers()
         widget.verticalHeader().setDefaultSectionSize(max(30,widget.fontMetrics().height()+12))

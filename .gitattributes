@@ -1,0 +1,2 @@
+# Preserve upstream font and licence bytes for the packaging hash manifest.
+tools/offline_preview/theme_art/public_fonts/* -text -diff

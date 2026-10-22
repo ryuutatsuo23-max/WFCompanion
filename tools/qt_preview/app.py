@@ -11,7 +11,7 @@ import math
 import sys
 
 from PySide6.QtCore import Qt, QRect, QSize, QTimer, QPoint, QPointF
-from PySide6.QtGui import QColor, QFont, QPainter, QPixmap, QPalette, QPen, QTextLayout, QTextOption
+from PySide6.QtGui import QColor, QFont, QPainter, QPixmap, QPalette, QPen, QTextLayout, QTextOption, QLinearGradient
 from PySide6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLayout, QSizePolicy,
     QLabel, QPushButton, QComboBox, QCheckBox, QSlider, QSpinBox,
@@ -237,7 +237,9 @@ class Panel(QWidget):
         color.setAlpha(round(255 * (1 - self.host.settings['panel_transparency'] / 100)))
         inset = 9 if self.host.wow else 5
         painter.fillRect(self.rect().adjusted(inset, inset, -inset, -inset), color)
-        if self.host.wow:
+        if self.host.original_theme:
+            paint_original_frame(painter, self.rect(), self.host.colors)
+        elif self.host.wow:
             self.host.textures.panel_frame.paint(painter, self.rect())
         else:
             painter.setPen(QColor(self.host.colors[4]))
@@ -314,7 +316,12 @@ class Title(QWidget):
 
     def paintEvent(self, event):
         painter = QPainter(self)
-        if self.host.wow:
+        if self.host.original_theme:
+            gradient=QLinearGradient(0,0,0,self.height())
+            gradient.setColorAt(0,QColor(self.host.colors[1]));gradient.setColorAt(1,QColor(self.host.colors[2]))
+            painter.fillRect(self.rect().adjusted(3,3,-3,-3),gradient)
+            paint_original_frame(painter,self.rect(),self.host.colors)
+        elif self.host.wow:
             self.host.textures.title_frame.paint(painter, self.rect())
         painter.setFont(QFont(self.font().family(), self.font().pointSize(), QFont.Weight.Bold))
         painter.setPen(QColor('#ffdd70' if self.host.wow else self.host.colors[3]))
@@ -325,6 +332,18 @@ def label(text):
     widget = QLabel(text)
     widget.setWordWrap(True)
     return widget
+
+
+def paint_original_frame(painter, rect, colors):
+    """Original scalable double-rule frame, with small diamond corner details."""
+    painter.setPen(QPen(QColor(colors[5]),1))
+    painter.drawRect(rect.adjusted(3,3,-4,-4))
+    painter.setPen(QPen(QColor(colors[4]),1))
+    painter.drawRect(rect.adjusted(6,6,-7,-7))
+    for x,y in ((7,7),(rect.width()-8,7),(7,rect.height()-8),(rect.width()-8,rect.height()-8)):
+        painter.setPen(QPen(QColor(colors[5]),2))
+        painter.drawLine(x-3,y,x,y-3);painter.drawLine(x,y-3,x+3,y)
+        painter.drawLine(x+3,y,x,y+3);painter.drawLine(x,y+3,x-3,y)
 
 
 def row(*widgets):
@@ -374,7 +393,11 @@ class Preview(QWidget):
 
     @property
     def wow(self):
-        return self.settings['ui_style'] == 'WoW' and self.textures.ready
+        return not self.original_theme and self.settings['ui_style'] == 'WoW' and self.textures.ready
+
+    @property
+    def original_theme(self):
+        return self.settings['theme'] in ('Classic Fantasy','Parchment','Midnight')
 
     def button(self, text, callback):
         button = WrappedButton(text.replace('&', '&&'))
@@ -561,14 +584,17 @@ class Preview(QWidget):
 
     def sync_controls(self):
         settings = self.settings
-        self.category.blockSignals(True)
-        self.category.setCurrentText(self.category_for(settings['theme']))
-        self.category.blockSignals(False)
+        if hasattr(self,'category'):
+            self.category.blockSignals(True)
+            self.category.setCurrentText(self.category_for(settings['theme']))
+            self.category.blockSignals(False)
         self.theme.blockSignals(True)
         self.theme.clear()
-        self.theme.addItems([name for name in THEMES if self.category_for(name) == self.category_for(settings['theme'])])
+        self.theme.addItems(self.theme_choices() if hasattr(self,'theme_choices') else [name for name in THEMES if self.category_for(name) == self.category_for(settings['theme'])])
         self.theme.blockSignals(False)
-        for widget, key in ((self.theme,'theme'), (self.skin,'ui_style'), (self.font_choice,'font_family'),
+        if hasattr(self,'skin'):
+            self.skin.blockSignals(True);self.skin.setCurrentText(settings['ui_style']);self.skin.blockSignals(False)
+        for widget, key in ((self.theme,'theme'), (self.font_choice,'font_family'),
                             (self.text_size,'text_size'), (self.art_mode,'artwork_mode')):
             widget.blockSignals(True)
             widget.setCurrentText(str(settings[key]))
@@ -645,6 +671,14 @@ class Preview(QWidget):
             QPushButton:focus {{ border: 2px solid {accent}; }}
             QPushButton:disabled {{ background: {panel}; color: {muted}; border-color: {muted}; }}
         '''
+        if self.original_theme:
+            top,bottom=('#762f29','#361615') if self.settings['theme']=='Classic Fantasy' else (panel,surface)
+            button_style += f'''
+                QPushButton {{ background: qlineargradient(x1:0,y1:0,x2:0,y2:1,stop:0 {top},stop:1 {bottom}); border: 1px solid {accent}; border-radius: 2px; }}
+                QPushButton:hover {{ background: {surface}; border: 2px solid {accent}; }}
+                QPushButton:pressed, QPushButton:checked {{ background: {bg}; border: 2px solid {accent}; }}
+                QPushButton:disabled {{ background: {panel}; color: {muted}; border-color: {muted}; }}
+            '''
         # Style changes happen only for theme/font/skin changes, never slider ticks.
         self.setStyleSheet(f'''
             QWidget {{ font-family: "{family}"; font-size: {self.settings['text_size']}pt; }}
@@ -680,6 +714,16 @@ class Preview(QWidget):
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.fillRect(self.rect(), QColor(self.colors[0]))
+        if self.original_theme and self.settings['show_artwork']:
+            # Original geometric ornament; clipped for the Header preference.
+            painter.save()
+            if self.settings['artwork_mode']=='Header': painter.setClipRect(0,0,self.width(),145)
+            line=QColor(self.colors[5]);line.setAlpha(18)
+            painter.setPen(QPen(line,1))
+            for x in range(-self.height(),self.width(),80):
+                painter.drawLine(x,0,x+self.height(),self.height())
+                painter.drawLine(x+self.height(),0,x,self.height())
+            painter.restore()
         if self.settings['show_artwork'] and not self.art.isNull():
             rect = self.rect() if self.settings['artwork_mode'] == 'Full background' else QRect(0, 0, self.width(), 145)
             scale = max(rect.width() / self.art.width(), rect.height() / self.art.height())

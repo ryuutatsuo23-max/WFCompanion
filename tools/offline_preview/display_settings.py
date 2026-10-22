@@ -2,7 +2,7 @@
 import re
 from appearance_catalogue import FONT_CHOICES, THEMES
 
-DEFAULT = dict(version=5, font_family="Segoe UI", ui_style="WoW", panel_transparency=20, show_artwork=True, artwork_mode="Full background", setup=False, hidden=[], order=[], theme="Dark", background="", image="",
+DEFAULT = dict(version=5, font_family="Segoe UI", ui_style="WoW", panel_transparency=20, show_artwork=True, artwork_mode="Full background", setup=False, hidden=[], order=[], theme="Classic Fantasy", background="", image="",
                sound=False, volume=50, text_size=10, support={})
 
 

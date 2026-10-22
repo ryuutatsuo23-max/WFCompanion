@@ -4,11 +4,15 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QCheckBox, QLabel, QListWidget
 from app import Preview, Panel, row, field, label, THEMES, FONT_CHOICES
 from display_settings import DEFAULT, validate_preferences
+from appearance_catalogue import companion_themes
 
 TABS=('Overview','Gathering','Crafting','Inventory & Bank','Gear wishlist','Profiles & Rules','Party & Trackers','Activity','Auction Journal','Auto-support','Settings')
 
 
 class SettingsMixin:
+    def theme_choices(self):
+        return companion_themes(self.settings['theme'])
+
     def build_settings(self,layout):
         layout.addWidget(self.button('Open setup guide',self.open_setup_guide),0,Qt.AlignmentFlag.AlignLeft)
         from update_panel import Updates
@@ -30,16 +34,14 @@ class SettingsMixin:
         workspace.box.addWidget(self.tab_order)
         workspace.box.addWidget(row(self.button('Move up',lambda:self.move_tab(-1)),self.button('Move down',lambda:self.move_tab(1)),self.button('Reset tab order',self.reset_order)))
         appearance=Panel(self,'Appearance'); layout.addWidget(appearance)
-        self.category=self.combo(['General','Places','Classes','Races'],self.choose_category)
-        self.theme=self.combo(list(THEMES),lambda value:self.change('theme',value) if value else None)
-        self.skin=self.combo(['WoW','Standard'],lambda value:self.change('ui_style',value))
-        appearance.box.addWidget(row(field('Theme category',self.category),field('Theme',self.theme),field('Interface style',self.skin)))
-        self.classic=QCheckBox('Use WoW Classic fonts by role')
+        self.theme=self.combo(self.theme_choices(),lambda value:self.change('theme',value) if value else None)
+        appearance.box.addWidget(row(field('Theme',self.theme)))
+        self.classic=QCheckBox('Use theme fonts')
         self.classic.toggled.connect(lambda v:self.font_change('classic_fonts',v))
         appearance.box.addWidget(self.classic)
-        self.font_choice=self.combo([*FONT_CHOICES,'Friz Quadrata TT','Arial Narrow','Morpheus','Skurri'],self.choose_font)
+        self.font_choice=self.combo([*FONT_CHOICES,*[f for f in ('Friz Quadrata TT','Arial Narrow','Morpheus','Skurri') if f in self.fonts.available]],self.choose_font)
         self.text_size=self.combo([str(i) for i in range(9,19)],lambda value:self.change('text_size',int(value)))
-        self.font_choice.setToolTip('Used when WoW Classic fonts by role are off.')
+        self.font_choice.setToolTip('Used when theme fonts are off.')
         appearance.box.addWidget(row(field('Font style',self.font_choice),field('Text size · points',self.text_size)))
         self.font_status=label(''); appearance.box.addWidget(self.font_status)
         self.show_art=QCheckBox('Show theme artwork'); self.show_art.toggled.connect(lambda v:self.change('show_artwork',v))

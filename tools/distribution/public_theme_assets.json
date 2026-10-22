@@ -1,0 +1,28 @@
+{
+  "files": [
+    {
+      "path": "public_fonts/Cinzel.ttf",
+      "sha256": "f4d83d34d1f6c741193e4acf4b3dff9531e5a67b6aa65228d00a7db72a4e0f34",
+      "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/cinzel/Cinzel%5Bwght%5D.ttf",
+      "license": "OFL-1.1"
+    },
+    {
+      "path": "public_fonts/Cinzel-OFL.txt",
+      "sha256": "f2b3029aba64c378bf0963b62945eee15e564fe4330b934c8f2eb058282b5e83",
+      "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/cinzel/OFL.txt",
+      "license": "OFL-1.1"
+    },
+    {
+      "path": "public_fonts/Lora.ttf",
+      "sha256": "822a6621ccbe8d97d20ac88c1c41f5615c9c2c202eaa75f272cd452aac6475a7",
+      "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/lora/Lora%5Bwght%5D.ttf",
+      "license": "OFL-1.1"
+    },
+    {
+      "path": "public_fonts/Lora-OFL.txt",
+      "sha256": "1d9a970809ac804b582a6ce7f0ebc4e7fefcbfd7ff6299cad35ee656a21be716",
+      "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/lora/OFL.txt",
+      "license": "OFL-1.1"
+    }
+  ]
+}

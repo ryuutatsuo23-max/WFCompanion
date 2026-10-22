@@ -38,7 +38,8 @@ def main():
     shutil.copy2(ROOT/'tools/distribution/install_addons.py',payload/'install_addons.py')
     # Only the reviewed, hash-pinned theme files; never copy the whole private art tree.
     art_manifest=json.loads((ROOT/'tools/distribution/theme_assets.json').read_text())
-    for row in ([] if args.public else art_manifest['files']):
+    public_art=json.loads((ROOT/'tools/distribution/public_theme_assets.json').read_text())
+    for row in (public_art['files'] if args.public else art_manifest['files']+public_art['files']):
         relative=Path(row['path'])
         art_root=(ROOT/'tools/offline_preview/theme_art').resolve()
         source=art_root/relative
@@ -51,6 +52,8 @@ def main():
     for name in ('forever.ico','SOURCES.md'):
         shutil.copy2(branding_source/name,branding/name)
     notices=payload/'notices';notices.mkdir()
+    shutil.copy2(ROOT/'LICENSE',notices/'WFCompanion-LICENSE.txt')
+    shutil.copy2(ROOT/'LICENSING.md',notices/'WFCompanion-LICENSING.md')
     for package in ('PySide6','PySide6_Essentials','PySide6_Addons','shiboken6'):
         dist=importlib.metadata.distribution(package)
         for item in dist.files or ():
@@ -66,7 +69,7 @@ def main():
     if python_license.exists():shutil.copy2(python_license,notices/'Python-LICENSE.txt')
     (payload/'BUILD-NOTICE.txt').write_text('Local test build. Not published. Includes explicitly selected theme artwork, textures and fonts for user testing. Artwork, catalogue and font redistribution review remains required before public release. Personal saves are excluded.\n')
     if args.public:
-        (payload/'BUILD-NOTICE.txt').write_text('WFCompanion public build. Original branding; system font fallback. No Blizzard artwork, font files, bulk third-party catalogue or personal saves bundled. Qt/PySide are dynamically linked and replaceable; see notices.\n')
+        (payload/'BUILD-NOTICE.txt').write_text('WFCompanion public build. Original branding and drawn themes; Cinzel and Lora fonts under OFL-1.1 (licences beside font files). No Blizzard artwork or game fonts, bulk third-party catalogue or personal saves bundled. Qt/PySide are dynamically linked and replaceable; see notices.\n')
     locals={p.stem for p in payload.rglob('*.py')};imports={'PySide6.QtCore','PySide6.QtGui','PySide6.QtWidgets','PySide6.QtMultimedia','sqlite3','ctypes','urllib.request','urllib.error','ssl','json','csv'}
     for source in payload.rglob('*.py'):
         for node in ast.walk(ast.parse(source.read_text(encoding='utf-8-sig'))):
@@ -104,6 +107,10 @@ def main():
     subprocess.run([str(compiler),*definitions,'/DPayload='+str(stage/'dist/WFCompanion'),'/DVersion='+version,'/DOutput='+str(output),'/DBranding='+str(branding_source),str(ROOT/'tools/distribution/installer.iss')],check=True)
     installer=output/'WFCompanion-Setup.exe';digest=hashlib.sha256(installer.read_bytes()).hexdigest()
     (output/'WFCompanion-Setup.exe.sha256').write_text(digest+'  WFCompanion-Setup.exe\n')
+    # Human downloads use a fresh filename; retain the canonical updater asset.
+    named='WFCompanion-'+version+'-Setup.exe'
+    shutil.copy2(installer,output/named)
+    (output/(named+'.sha256')).write_text(digest+'  '+named+'\n')
     manifest['stage']='public-build' if args.public else 'local-test-build';manifest['payload']=[dict(path=str(p.relative_to(payload)),sha256=hashlib.sha256(p.read_bytes()).hexdigest()) for p in sorted(payload.rglob('*')) if p.is_file()]
     (output/'build-manifest.json').write_text(json.dumps(manifest,indent=2))
     print(json.dumps({'installer':str(installer),'application':str(stage/'dist/WFCompanion/WFCompanion.exe'),'sha256':digest}))

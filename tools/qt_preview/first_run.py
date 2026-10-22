@@ -32,24 +32,20 @@ class SetupGuide(QWizard):
         appearance_scroll.setWidget(appearance_body); page_layout.addWidget(appearance_scroll)
         self.mode = QComboBox(); self.mode.addItems(['Easy', 'Advanced'])
         self.mode.setCurrentText(host.qt_settings.get('experience_mode', 'Easy'))
-        self.search = QLineEdit(); self.search.setPlaceholderText('Search themes, classes or races…')
-        self.category = QComboBox(); self.category.addItems(['All', 'General', 'Places', 'Classes', 'Races'])
-        self.theme = QListWidget(); self.theme.addItems(list(THEMES)); self.theme.setMaximumHeight(150)
-        self.theme.setCurrentRow(list(THEMES).index(host.settings['theme']))
-        self.search.textChanged.connect(self.filter_themes); self.category.currentTextChanged.connect(self.filter_themes)
+        names=host.theme_choices()
+        self.theme = QListWidget(); self.theme.addItems(names); self.theme.setMaximumHeight(150)
+        self.theme.setCurrentRow(names.index(host.settings['theme']))
         self.size = QComboBox(); self.size.addItems([str(i) for i in range(9, 19)])
         self.size.setCurrentText(str(host.settings['text_size']))
-        form.addRow('Detail level', self.mode); form.addRow('Theme category', self.category); form.addRow('Find a theme', self.search); form.addRow('Colour theme', self.theme); form.addRow('Text size (points)', self.size)
-        self.skin = QComboBox(); self.skin.addItems(['WoW', 'Standard']); self.skin.setCurrentText(host.settings['ui_style'])
+        form.addRow('Detail level', self.mode); form.addRow('Theme', self.theme); form.addRow('Text size (points)', self.size)
         self.artwork = QCheckBox('Show theme background'); self.artwork.setChecked(host.settings['show_artwork'])
-        form.addRow('Interface style', self.skin); form.addRow(self.artwork)
-        help_text = QLabel('Choices preview on the companion behind this window. Move this window aside to see more. Cancel restores your previous settings.'); help_text.setWordWrap(True)
+        form.addRow(self.artwork)
+        help_text = QLabel('Try Classic Fantasy for gold borders and red buttons, Parchment for a light reading view, or Midnight for a cool dark look. Choices preview behind this window. Cancel restores your previous settings.'); help_text.setWordWrap(True)
         form.addRow(help_text)
         self.sample = QLabel('Preview: Bags · Bank · Gear wishlist'); self.sample.setWordWrap(True)
         form.addRow(self.sample)
         self.size.currentTextChanged.connect(self.preview_size)
         self.theme.currentTextChanged.connect(self.preview_appearance)
-        self.skin.currentTextChanged.connect(self.preview_appearance)
         self.artwork.toggled.connect(self.preview_appearance)
         self.addPage(page)
         tabs = QWizardPage(); tabs.setTitle('Choose your tabs')
@@ -87,17 +83,10 @@ class SetupGuide(QWizard):
         layout = QVBoxLayout(page); label = QLabel(text); label.setWordWrap(True)
         layout.addWidget(label); layout.addStretch(); self.addPage(page)
 
-    def filter_themes(self, *_):
-        category = self.category.currentText(); query = self.search.text().casefold()
-        for index in range(self.theme.count()):
-            item = self.theme.item(index); name = item.text()
-            group = 'Classes' if name.startswith('Class ·') else 'Races' if name.startswith('Race ·') else 'Places' if ' ·' in name else 'General'
-            item.setHidden(query not in name.casefold() or (category != 'All' and group != category))
-
     def preview_appearance(self, *_):
         item = self.theme.currentItem()
         if item is None: return
-        self.host.settings.update(theme=item.text(), text_size=int(self.size.currentText()), ui_style=self.skin.currentText(), show_artwork=self.artwork.isChecked())
+        self.host.settings.update(theme=item.text(), text_size=int(self.size.currentText()), show_artwork=self.artwork.isChecked())
         self.host.apply_appearance(); self.host.refresh_settings_status()
         self.apply_guide_style()
 
