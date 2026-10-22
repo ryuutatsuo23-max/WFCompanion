@@ -682,6 +682,8 @@ class Preview(QWidget):
         # Style changes happen only for theme/font/skin changes, never slider ticks.
         self.setStyleSheet(f'''
             QWidget {{ font-family: "{family}"; font-size: {self.settings['text_size']}pt; }}
+            QDialog, QMessageBox {{ background-color: {panel}; color: {ink}; }}
+            QMessageBox QLabel {{ background-color: {panel}; color: {ink}; }}
             QScrollArea, QStackedWidget {{ background: transparent; border: none; }}
             QLabel, QCheckBox {{ background: transparent; color: {ink}; }}
             QPushButton {{ padding: 9px 16px; color: {'#ffdd70' if self.wow else ink}; }}

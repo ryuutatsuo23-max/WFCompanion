@@ -1,11 +1,24 @@
-# WFCompanion 0.1.9
+# WFCompanion 0.1.10
 
-The Overview now provides setup shortcuts, checks the usual game folders for Core and Storage files, and includes accepted addon snapshots in bag/bank status. Empty saved scans remain distinct from unknown banks.
+Updates now show a small notification with Download update and Cancel choices,
+once per available version per session. Downloads show percentage and byte counts,
+disable conflicting actions, and retain checksum verification. A verified download
+offers Update and restart with a final confirmation.
 
-This release also includes Classic Fantasy as the new-install default, Parchment and Midnight themes, a simpler appearance selector, the WFCompanion window title, and GPL-3.0-only licensing for original project code. Existing preferences and saved data are preserved.
+Update and restart waits for the companion to exit normally, verifies the installer
+again, runs Inno Setup in silent companion-only mode with a progress window, and
+reopens the app after a successful exit code. It uses the current installation
+folder, preserves saved data, does not install game addons, never force-closes the
+app, and never reboots Windows. Unsaved settings and applied records block restart;
+the confirmation reminds users to save unfinished editor fields. Helper failures
+show an error and retain logs in the companion data folder's updates directory.
 
-Storage 0.7.0 saves are accepted for review only. Automatic count replacement remains blocked pending live split validation. Folder detection does not establish client compatibility. Optional addon files are retained from the existing public source snapshot; this companion release does not incorporate the other chats' newer addon changes.
+Confirmation dialogs now explicitly use the selected theme's background and text
+colours, fixing pale text on a white native Windows surface.
 
-For an update test, open the older companion and choose Settings > Check for updates, then Download update and Open downloaded installer. Close the companion before installing. Select Companion only for this test. Do not uninstall or delete saved data first.
+One manual update from 0.1.9 is needed to receive this new updater. The automated
+restart path is available in recognized installed Windows copies, not development
+checkouts. The installer remains unsigned pending SignPath review. Storage 0.7.0
+automatic count replacement remains blocked pending live validation.
 
-The installer is unsigned; SignPath approval is pending. The checksum verifies download integrity, not publisher identity. Original drawn artwork and OFL fonts are included; extracted Blizzard art/fonts, the bulk item catalogue, and personal saves are excluded. Dependency source archives and checksums accompany this release.
+Implementation reference: https://jrsoftware.org/ishelp/topic_setupcmdline.htm

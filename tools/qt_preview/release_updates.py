@@ -11,7 +11,7 @@ import urllib.request
 from urllib.parse import urlsplit
 from urllib.error import HTTPError
 
-VERSION='0.1.9'
+VERSION='0.1.10'
 REPOSITORY='ryuutatsuo23-max/WFCompanion'
 ASSET='WFCompanion-Setup.exe'
 API=f'https://api.github.com/repos/{REPOSITORY}/releases/latest'
@@ -68,7 +68,7 @@ def check():
     return candidate(json.loads(raw))
 
 
-def download(release,directory):
+def download(release,directory,progress=None):
     directory=Path(directory).resolve();directory.mkdir(parents=True,exist_ok=True)
     # Revalidate the descriptor so callers cannot redirect this downloader.
     tag=release['version'];version(tag)
@@ -80,11 +80,13 @@ def download(release,directory):
     expected=match[1].decode().lower();target=directory/(tag+'-'+ASSET)
     partial=target.with_suffix('.part');digest=hashlib.sha256();size=0
     try:
+        if progress:progress(0,release['installer'][1])
         with request(release['installer'][0]) as stream,partial.open('wb') as output:
             while block:=stream.read(1024*1024):
                 size+=len(block)
                 if size>MAX_INSTALLER or size>release['installer'][1]:raise ValueError('Installer exceeds declared size.')
                 digest.update(block);output.write(block)
+                if progress:progress(size,release['installer'][1])
         if size!=release['installer'][1] or digest.hexdigest()!=expected:raise ValueError('Installer checksum/size mismatch.')
         partial.replace(target)
         return target
