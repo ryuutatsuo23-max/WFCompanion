@@ -10,8 +10,9 @@ def parse_snapshot(snap,guid,scope,kind):
     from core_observations import Observation,integer,timestamp
     def require(test,message):
         if not test:raise ReportError('Schema 2: '+message)
-    # 0.5.x changed interaction/appearance; Bags.lua collection is unchanged.
-    require(snap.get('addonVersion') in ('0.4.0','0.5.0','0.5.1'),'unsupported producer version.')
+    # Storage 0.7.0 retains the WFCoreDB/schema-2 contract. Its snapshot version
+    # belongs to Storage, independently of Core API/package versions.
+    require(snap.get('addonVersion') in ('0.4.0','0.5.0','0.5.1','0.7.0'),'unsupported producer version.')
     require(snap.get('owner')==guid and snap.get('scope')==scope and snap.get('accessible') is True,'owner/scope/access mismatch.')
     identity=snap.get('identity');client=snap.get('client')
     require(isinstance(identity,dict) and identity.get('guid')==guid,'snapshot identity mismatch.')
@@ -78,4 +79,4 @@ def parse_snapshot(snap,guid,scope,kind):
             positives=sorted(i for i in expected if i>=0);negatives=[i for i in expected if i<0]
             require(positives==list(range(len(positives))) and 1<=len(positives)<=11 and len(negatives)==1,'bag declaration mismatch.')
     name=' '.join(identity.get(k,'') for k in ('firstName','lastName')).strip() or guid
-    return Observation(guid,name,scope,str(client.get('build','Unknown')),started,finished,snap['coverage'],counts['unknown'],tuple(sorted(totals.items())),kind=='attempt',2,counts['observed'],counts['empty'],snap['scanStatus'],identity.get('realm',''),client['version'],client['interface'])
+    return Observation(guid,name,scope,str(client.get('build','Unknown')),started,finished,snap['coverage'],counts['unknown'],tuple(sorted(totals.items())),kind=='attempt',2,counts['observed'],counts['empty'],snap['scanStatus'],identity.get('realm',''),client['version'],client['interface'],snap['addonVersion'])

@@ -40,10 +40,19 @@ def summaries(data,now=None):
     now=now or datetime.now(timezone.utc)
     try:equipment,_=EquipmentStore(data.directory).load();error=False
     except (ValueError,OSError,KeyError,TypeError):equipment={'characters':{}};error=True
+    from observed_inventory import ObservationStore
+    try:ledger=ObservationStore(data.directory).ledger;addon_error=False
+    except (ValueError,OSError,KeyError,TypeError):ledger={};addon_error=True
     result=[]
     for p in data.profiles:
         book=data.inventories.get(p.id)
         inv=['Unavailable · saved-file error']*2 if data.inventory_store.error else [inventory_status(book,n,now) for n in ('Bags','Bank')]
+        for index,scope in enumerate(('bags','bank')):
+            saved=ledger.get((p.id,scope))
+            if addon_error:inv[index]='Unavailable · addon saved-file error'
+            elif saved and not data.inventory_store.error:
+                stamp=datetime.fromtimestamp(saved['finished'],timezone.utc).isoformat()
+                inv[index]=observation_status([stamp],now)+(' · saved empty' if not saved['rows'] else ' · addon snapshot')
         record=equipment['characters'].get(p.id)
         mismatch=record and p.id.startswith('capture-') and p.id!='capture-'+record['guid']
         equipped='Unavailable · saved-file error' if error else 'Unavailable · GUID mismatch' if mismatch else observation_status(

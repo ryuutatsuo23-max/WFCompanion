@@ -38,6 +38,7 @@ class Observation:
     realm: str = ''
     client_version: str = ''
     interface: int = 0
+    producer_version: str = ''
 
 
 def integer(value, low, high):

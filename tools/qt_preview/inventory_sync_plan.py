@@ -42,6 +42,8 @@ sets; names never participate. Missing scopes leave the candidate ledger unchang
         if len(latest)!=1:
             result('blocked','One latest snapshot is required for this location.');continue
         obs=latest[0]
+        if obs.producer_version=='0.7.0':
+            result('blocked','Forever Storage 0.7.0 awaits live split validation; previous counts retained.');continue
         if allowed_builds is not None and obs.build not in allowed_builds:
             result('blocked','This client build has not been validated for automatic observations.');continue
         if obs.schema!=2 or obs.coverage!='complete' or obs.scan_status!='completed' or obs.unknown_slots:

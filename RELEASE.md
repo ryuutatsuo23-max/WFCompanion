@@ -1,22 +1,11 @@
-# WFCompanion 0.1.6
+# WFCompanion 0.1.9
 
-First public Windows release. Download **WFCompanion-Setup.exe** below.
-Python and build tools are included or unnecessary for users.
+The Overview now provides setup shortcuts, checks the usual game folders for Core and Storage files, and includes accepted addon snapshots in bag/bank status. Empty saved scans remain distinct from unknown banks.
 
-- Character inventories, equipment, bank snapshots, plans and wishlists.
-- Easy/Advanced display, first-run setup and configurable visible tabs.
-- Optional addon selection, desktop/Start menu shortcuts and uninstall choices.
-- Stable update checks with SHA-256 verification; installation remains user-triggered.
-- Original public branding, colour themes and system fonts.
+This release also includes Classic Fantasy as the new-install default, Parchment and Midnight themes, a simpler appearance selector, the WFCompanion window title, and GPL-3.0-only licensing for original project code. Existing preferences and saved data are preserved.
 
-Compared with the private 0.1.5 test build, this package excludes third-party
-artwork/font files and the bulk item catalogue. Catalogue search starts empty.
-Existing personal records are not bundled, deleted or uploaded by this release.
+Storage 0.7.0 saves are accepted for review only. Automatic count replacement remains blocked pending live split validation. Folder detection does not establish client compatibility. Optional addon files are retained from the existing public source snapshot; this companion release does not incorporate the other chats' newer addon changes.
 
-Windows 10 build 19041+ or Windows 11, x64. WoW is not required for offline use.
-The installer is unsigned. The source archives are for developers and LGPL
-compliance; ordinary users only need the installer.
+For an update test, open the older companion and choose Settings > Check for updates, then Download update and Open downloaded installer. Close the companion before installing. Select Companion only for this test. Do not uninstall or delete saved data first.
 
-Validation: packaged startup, empty catalogue, setup guide, companion regression,
-addon installer and update-check tests. The prior 0.1.5 installer was user-tested
-on a second PC; 0.1.6's changed public package still benefits from a second-PC check.
+The installer is unsigned; SignPath approval is pending. The checksum verifies download integrity, not publisher identity. Original drawn artwork and OFL fonts are included; extracted Blizzard art/fonts, the bulk item catalogue, and personal saves are excluded. Dependency source archives and checksums accompany this release.

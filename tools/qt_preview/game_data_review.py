@@ -7,6 +7,28 @@ from probe_report import ReportError,CLIENT
 MAX_BYTES=64*1024*1024
 
 
+def installation_status(roots=None):
+    """Read folder markers only; presence does not establish client compatibility."""
+    roots=roots if roots is not None else (CLIENT,CLIENT.parent/'_classic_beta_')
+    found=[];unreadable=False
+    for root in roots:
+        root=Path(root)
+        try:
+            (root/'Wow.exe').stat()
+            addons=root/'Interface'/'AddOns'
+            installed=[]
+            for name in ('WFCore','WFStorage'):
+                try:(addons/name/(name+'.toc')).stat();installed.append(name)
+                except FileNotFoundError:pass
+            state='Core + Storage files found' if len(installed)==2 else 'Storage missing' if installed==['WFCore'] else 'Core missing' if installed==['WFStorage'] else 'Core + Storage files not found'
+            found.append(f'{root.name}: {state}')
+        except FileNotFoundError:pass
+        except OSError:unreadable=True
+    if found:return 'Game folders — '+'; '.join(found)+'. File presence only; enabled addons and game access are not checked.'+(' Another folder could not be checked.' if unreadable else '')
+    if unreadable:return 'Game folders could not be checked. Offline planning is still available.'
+    return 'No game found in the usual folders. You can plan offline, or choose a saved addon file in Review game data.'
+
+
 def discover():
     roots=(CLIENT,CLIENT.parent/'_classic_beta_')
     return sorted({p.resolve() for root in roots for p in

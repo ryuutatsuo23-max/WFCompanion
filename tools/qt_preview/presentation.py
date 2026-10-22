@@ -8,6 +8,7 @@ def simple_observation(value):
     if 'manual records only' in value:return 'Manually recorded'
     if value.startswith('Not captured'):return 'Not checked yet'
     if value.startswith('Outdated') or 'date unknown' in value or 'check clock' in value:return 'May need updating'
+    if 'saved empty' in value:return 'Empty in saved scan'
     return 'Saved records available'
 
 

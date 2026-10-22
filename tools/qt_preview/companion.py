@@ -151,6 +151,15 @@ class Companion(SettingsMixin, Preview):
         return super().eventFilter(watched,event)
 
     def build_overview(self,layout):
+        welcome=Panel(self,'Getting started');layout.addWidget(welcome)
+        welcome.box.addWidget(label('1. Choose your settings.  2. Plan with the selected character.  3. Review game data when you have a saved capture.'))
+        self.installation_notice=label('');welcome.box.addWidget(self.installation_notice)
+        self.installation_notice.setTextFormat(Qt.TextFormat.PlainText)
+        welcome.box.addWidget(label('Bags and bank are checked separately. A bank you have not opened is unknown, not empty. Storage 0.7.0 saves can be reviewed; automatic count updates await live validation.'))
+        welcome.box.addWidget(row(self.button('Setup guide',self.open_setup_guide),
+                                 self.button('Review game data',lambda:self.character_overview.check_game_data()),
+                                 self.button('Check game folders',self.refresh_installation_status)))
+        self.refresh_installation_status()
         self.character_overview=CharacterOverview(self);layout.addWidget(self.character_overview)
         self.show_simulation=QCheckBox('Show combat simulation (example values)')
         layout.addWidget(self.show_simulation)
@@ -215,6 +224,10 @@ class Companion(SettingsMixin, Preview):
             self.gear_page.message(error); self.banner.setText(str(error)); self.sync_preset(); return False
         self.gear_page.restore(char); self.playstyle_page.restore(char); self.sync_preset()
         return True
+
+    def refresh_installation_status(self):
+        from game_data_review import installation_status
+        self.installation_notice.setText(installation_status())
 
     def show_gear_section(self,plan):
         self.gear_page.setVisible(not plan); self.playstyle_page.setVisible(plan)
