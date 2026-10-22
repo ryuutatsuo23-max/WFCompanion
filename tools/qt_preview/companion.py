@@ -78,6 +78,9 @@ class Companion(SettingsMixin, Preview):
         self.banner.setText('Saved-file errors: '+' | '.join(errors) if errors else '')
         self.banner.setVisible(bool(errors))
         self.log('Session','Started','Offline. No game, screen, network or input backend.')
+        from saved_character_connection import SavedCharacterConnection
+        self.saved_character_connection=SavedCharacterConnection(self)
+        QTimer.singleShot(0,self.saved_character_connection.restore)
 
     def build(self):
         self.settings={**deepcopy(DEFAULT),**deepcopy(self.data.display.data)}

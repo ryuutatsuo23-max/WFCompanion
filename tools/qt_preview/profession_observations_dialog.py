@@ -1,4 +1,4 @@
-"""Read-only session journal. No calls into manual crafting or profile stores."""
+"""Read-only profession journal with an explicit saved-character connection action."""
 from datetime import datetime, timezone
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (QDialog, QVBoxLayout, QFileDialog, QPlainTextEdit,
@@ -59,6 +59,7 @@ class ProfessionObservationsDialog(QDialog):
     def __init__(self, host, cache):
         super().__init__(host)
         self.cache = cache
+        self.host = host
         self.directory = cache.accepted['directory'] if cache.accepted else None
         self.setWindowTitle('Cached professions · WF Companion')
         self.resize(980, 750); self.setPalette(host.palette())
@@ -91,12 +92,15 @@ class ProfessionObservationsDialog(QDialog):
         self.summary = label(''); box.addWidget(self.summary)
         box.addWidget(label('Recipe names and ingredients are not available yet.'))
         self.details_button = host.button('Details', self.toggle_details)
-        self.details_button.setCheckable(True); box.addWidget(self.details_button)
+        self.details_button.setCheckable(True)
+        self.forget_button = host.button('Forget saved connection', self.forget_connection)
+        self.forget_button.hide(); box.addWidget(row(self.details_button, self.forget_button))
         self.output = QPlainTextEdit(); self.output.setReadOnly(True)
         self.output.setMaximumHeight(180); self.output.hide(); box.addWidget(self.output)
         self.refresh_button = host.button('Refresh', self.refresh)
+        self.connect_button = host.button('Connect & remember characters', self.connect_characters)
         box.addWidget(row(host.button('Choose saved data', self.choose),
-                          self.refresh_button, host.button('Close', self.accept)))
+                          self.refresh_button, self.connect_button, host.button('Close', self.accept)))
         self.character.currentIndexChanged.connect(self.select_character)
         self.search.textChanged.connect(self.filter_recipes)
         self.profession.currentIndexChanged.connect(self.filter_recipes)
@@ -106,6 +110,14 @@ class ProfessionObservationsDialog(QDialog):
 
     def toggle_details(self):
         self.output.setVisible(self.details_button.isChecked())
+        self.forget_button.setVisible(self.details_button.isChecked())
+
+    def forget_connection(self):
+        try:
+            self.host.saved_character_connection.forget()
+            self.status.setText('Connection forgotten. Existing characters and plans are kept.')
+        except (ValueError, OSError) as exc:
+            self.status.setText('Could not forget connection: '+str(exc))
 
     def select_character(self):
         while self.cards_layout.count():
@@ -176,8 +188,18 @@ class ProfessionObservationsDialog(QDialog):
             self.cache.refresh(self.directory)
         self.render()
 
+    def connect_characters(self):
+        if not self.directory:return
+        try:
+            self.cache=self.host.saved_character_connection.connect(self.directory)
+            self.render()
+            self.status.setText('Connected. This folder and its saved characters will load when the companion starts.')
+        except (ValueError,OSError,KeyError,TypeError) as exc:
+            self.status.setText('Could not connect saved characters: '+str(exc))
+
     def render(self):
         self.refresh_button.setEnabled(bool(self.directory))
+        self.connect_button.setEnabled(bool(self.directory) and self.cache.accepted is not None and not self.cache.error)
         retained = ('Previous accepted observation remains below.' if self.cache.accepted
                     else 'No observation has been accepted yet.')
         self.status.setText(('Read failed: ' + self.cache.error + '\n' + retained
