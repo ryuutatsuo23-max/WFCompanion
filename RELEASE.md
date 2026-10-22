@@ -1,13 +1,17 @@
-# WFCompanion 0.1.12
+# WFCompanion 0.1.13
 
-Adds support for optional smaller, exact-base updates and a Download full installer
-instead button. Eligible later releases can download only changed files while
-retaining the existing notification, progress, confirmation and restart flow.
+Small follow-up release to validate the exact-base update path from 0.1.12.
+The installed version changes to 0.1.13; no game-addon or saved-data changes.
 
-Unknown or incompatible bases and failed patch downloads use the full installer.
-Smaller updates keep a recovery copy and check application startup before reopening.
-Saved companion data and game addons remain separate. This version itself requires
-a full installer to introduce the new updater files.
+From installed 0.1.12, check for updates. The smaller download is about 4.6 MB
+(compared with the 38.1 MB full installer). Matching installations should select the
+smaller package. A modified, missing or incompatible base uses the full installer.
+The full installer remains available explicitly in Settings and on the release.
 
-Public smaller-update deployment and second-PC validation remain pending. Windows
-publisher signing remains pending. No addon compatibility changes are included.
+Expected test: notification, download progress, confirmation, automatic restart,
+Installed version: 0.1.13, and preserved settings. Smaller updates perform a
+backup and startup check, so installation may take longer than downloading.
+
+Installer signing is still pending. Forced power-loss recovery has not been
+validated; keep the full installer available for repair. Recovery backups remain
+under the companion data folder's updates directory.
