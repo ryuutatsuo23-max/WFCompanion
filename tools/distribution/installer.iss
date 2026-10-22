@@ -59,7 +59,9 @@ Name: desktopicon; Description: "Create a desktop shortcut for WFCompanion"; Gro
 Name: "{userprograms}\WFCompanion\Uninstall WFCompanion"; Filename: "{uninstallexe}"; IconFilename: "{app}\_internal\payload\branding\forever.ico"
 Name: "{app}\Uninstall WFCompanion"; Filename: "{uninstallexe}"; IconFilename: "{app}\_internal\payload\branding\forever.ico"
 Name: "{userprograms}\WFCompanion\WFCompanion"; Filename: "{app}\WFCompanion.exe"; WorkingDir: "{app}"; IconFilename: "{app}\_internal\payload\branding\forever.ico"; Comment: "WoW Forever companion - characters, inventory and wishlists"; AppUserModelID: "WFCompanion.Desktop"
-Name: "{userdesktop}\WFCompanion"; Filename: "{app}\WFCompanion.exe"; WorkingDir: "{app}"; IconFilename: "{app}\_internal\payload\branding\forever.ico"; Comment: "Open the WoW Forever companion"; AppUserModelID: "WFCompanion.Desktop"; Tasks: desktopicon
+Name: "{userdesktop}\WF Companion"; Filename: "{app}\WFCompanion.exe"; WorkingDir: "{app}"; IconFilename: "{app}\_internal\payload\branding\forever.ico"; Comment: "Open the WoW Forever companion"; AppUserModelID: "WFCompanion.Desktop"; Tasks: desktopicon
+[InstallDelete]
+Type: files; Name: "{userdesktop}\WFCompanion.lnk"; Tasks: desktopicon
 [Run]
 Filename: "{app}\WFCompanion.exe"; Description: "Open WFCompanion"; Flags: postinstall nowait skipifsilent
 [Code]

@@ -1,8 +1,8 @@
 """Background update checks, visible progress and confirmed update/restart."""
 import sys
 import hashlib
-from PySide6.QtCore import QObject,QRunnable,QThreadPool,QTimer,Signal,Qt
-from PySide6.QtWidgets import QCheckBox,QMessageBox,QProgressBar,QDialog,QVBoxLayout,QApplication
+from PySide6.QtCore import QObject,QRunnable,QThreadPool,QTimer,Signal,Qt,QEvent
+from PySide6.QtWidgets import QCheckBox,QMessageBox,QProgressBar,QFrame,QVBoxLayout
 from app import Panel,label,row
 from storage import write_json
 import release_updates as releases
@@ -21,15 +21,15 @@ class Job(QRunnable):
         except Exception as exc:self.result.done.emit(None,str(exc))
 
 
-class UpdateToast(QDialog):
-    """Persistent, non-modal notification on the companion's screen."""
+class UpdateToast(QFrame):
+    """Persistent child overlay anchored inside the companion window."""
     def __init__(self,host,version,download):
-        super().__init__(host,Qt.WindowType.Tool|Qt.WindowType.FramelessWindowHint)
+        super().__init__(host)
+        self.setObjectName('updateToast')
         self.setWindowTitle('WFCompanion update available')
-        self.setModal(False)
         self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
         bg=host.colors[1]
-        self.setStyleSheet(f'QDialog {{ background-color: {bg}; border: 1px solid #bca56c; }}')
+        self.setStyleSheet(f'QFrame#updateToast {{ background-color: {bg}; border: 1px solid #bca56c; }}')
         box=QVBoxLayout(self);box.setContentsMargins(18,16,18,16)
         box.addWidget(label('WFCompanion update available'))
         message=label('Version '+version+' is ready. Download while you keep working. Restart requires confirmation.')
@@ -37,10 +37,22 @@ class UpdateToast(QDialog):
         self.update_button=host.button('Update',lambda:(self.accept(),download()))
         self.cancel_button=host.button('Cancel',self.reject)
         box.addWidget(row(self.update_button,self.cancel_button))
-        area=(host.screen() or QApplication.primaryScreen()).availableGeometry()
-        self.setFixedWidth(min(390,max(200,area.width()-32)))
+        host.installEventFilter(self)
+        self.reposition()
+
+    def accept(self):self.close()
+    def reject(self):self.close()
+
+    def reposition(self):
+        area=self.parentWidget().contentsRect()
+        self.setFixedWidth(min(390,max(1,area.width()-32)))
         self.adjustSize()
-        self.move(area.right()-self.width()-15,area.top()+16)
+        self.move(max(area.left(),area.right()-self.width()-15),area.top()+16)
+        self.raise_()
+
+    def eventFilter(self,watched,event):
+        if event.type() in (QEvent.Type.Resize,QEvent.Type.Show):self.reposition()
+        return super().eventFilter(watched,event)
 
 
 

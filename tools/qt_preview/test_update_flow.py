@@ -27,6 +27,7 @@ class UpdateFlowTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             host=Companion(Path(tmp));host.testing=True;host.updates_panel.timer.stop()
             panel=host.updates_panel
+            host.show();self.app.processEvents()
             try:
                 panel.checked(releases.candidate(release()),'');self.app.processEvents()
                 prompt=panel.prompt;self.assertTrue(prompt.isVisible());prompt.reject()
@@ -52,6 +53,7 @@ class UpdateFlowTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             host=Companion(Path(tmp));host.testing=True
             panel=host.updates_panel
+            host.show();self.app.processEvents()
             try:
                 with patch.object(panel,'check') as check:
                     panel.toggle(True)
@@ -63,10 +65,17 @@ class UpdateFlowTests(unittest.TestCase):
                 panel.checked(releases.candidate(release()),'');self.app.processEvents()
                 toast=panel.prompt
                 self.assertFalse(toast.isModal())
-                area=host.screen().availableGeometry()
+                area=host.contentsRect()
+                self.assertFalse(toast.isWindow())
+                self.assertIs(toast.parentWidget(),host)
                 self.assertTrue(area.contains(toast.geometry()))
                 self.assertLessEqual(abs(toast.geometry().right()-(area.right()-16)),2)
                 self.assertTrue(toast.isVisible())
+                host.resize(900,700);self.app.processEvents()
+                self.assertTrue(host.contentsRect().contains(toast.geometry()))
+                self.assertEqual(toast.x()+toast.width(),host.contentsRect().right()-15)
+                host.hide();self.app.processEvents();self.assertFalse(toast.isVisible())
+                host.show();self.app.processEvents();self.assertTrue(toast.isVisible())
                 with patch.object(panel,'download') as download:
                     toast.update_button.click();download.assert_called_once_with(True)
                 self.assertFalse(toast.isVisible())

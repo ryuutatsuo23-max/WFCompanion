@@ -1,7 +1,9 @@
-# WFCompanion 0.1.15
+# WFCompanion 0.1.16
 
-Small update for testing 0.1.14's automatic update toast. Leave 0.1.14 open with automatic checks enabled; the notification should appear on its next five-minute check. Choose Update, then confirm the restart after download verification.
+Update notifications now stay inside the companion's upper-right corner. They follow resizing and hide with the app, remaining until Update or Cancel. Automatic checks continue every five minutes when enabled.
 
-Installer-created desktop and Start menu shortcuts now reference the bundled compass ICO directly, instead of the executable icon. This gives Windows a different icon source when replacing shortcuts that still show the old artwork. Manually created shortcuts are not rewritten. No uninstall or saved-data deletion is needed.
+The desktop shortcut is now labelled **WF Companion**, allowing Windows to wrap at the space instead of splitting the name. When desktop shortcut creation is enabled, setup replaces the old WFCompanion shortcut. The application name and saved-data location are unchanged.
 
-Saved settings and records are preserved. No addon changes. The smaller update from an exact 0.1.14 installation and the full installer fallback are both available. Installers remain unsigned while signing is pending.
+Saved settings and records are preserved. No addon changes. An exact-base smaller update from 0.1.15 and the full installer fallback are provided. Installers remain unsigned while signing is pending.
+
+The notification offering this update uses your currently installed version's behaviour. After installing 0.1.16, future notifications use the corrected in-app placement.
