@@ -121,6 +121,7 @@ class SavedCharacterConnection:
         # Do not replace the cache or rebuild controls while a review is open.
         from PySide6.QtWidgets import QApplication
         if QApplication.activeModalWidget() is not None:return
+        if getattr(self.host.character_overview,'dragging_card',False):return
         if not self.host.character_overview.game_data_monitor.enabled:return
         try:
             directory=self.source()

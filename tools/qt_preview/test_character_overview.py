@@ -14,6 +14,52 @@ from observed_inventory import ObservationStore
 
 
 class OverviewTests(unittest.TestCase):
+    def test_card_order_and_collapse_persist_without_changing_profiles(self):
+        from character_overview import validate_card_preferences
+        from local_journal import LocalStore
+        app=QApplication.instance() or QApplication([])
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);seed(root);w=Companion(root);w.testing=True
+            try:
+                page=w.character_overview;before=files(root);original=page.card_order()
+                self.assertTrue(page.move_card(original[0],original[1]))
+                self.assertEqual(page.card_order()[:2],[original[1],original[0]])
+                page.toggle_collapsed();self.assertTrue(page.cards.isHidden())
+                page.refresh();self.assertTrue(page.cards.isHidden())
+                self.assertEqual(page.card_order()[:2],[original[1],original[0]])
+                saved=LocalStore(root,'character_cards.json',{},validate_card_preferences)
+                self.assertTrue(saved.data['collapsed']);self.assertEqual(saved.data['order'],page.card_order())
+                page.toggle_collapsed();self.assertFalse(page.cards.isHidden())
+                for name,value in before.items():self.assertEqual(files(root)[name],value)
+                # An external preference edit must not overwrite the file or move cards.
+                order=page.card_order();page.card_preferences.path.write_text('external change')
+                self.assertFalse(page.move_card(order[0],order[1]));self.assertEqual(page.card_order(),order)
+            finally:
+                QThreadPool.globalInstance().waitForDone();app.processEvents();w.close();w.deleteLater();app.processEvents()
+
+    def test_drag_target_feedback_clears_on_leave_and_drop(self):
+        from unittest.mock import Mock
+        from character_overview import CardHandle
+        app=QApplication.instance() or QApplication([])
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);seed(root);w=Companion(root);w.testing=True
+            try:
+                page=w.character_overview
+                source=page.cards_box.itemAt(0).widget().findChild(CardHandle)
+                target=page.cards_box.itemAt(1).widget()
+                event=Mock();event.source.return_value=source
+                target.dragEnterEvent(event);self.assertTrue(target.drop_target)
+                event.acceptProposedAction.assert_called_once()
+                target.dragLeaveEvent(event);self.assertFalse(target.drop_target)
+                target.dragEnterEvent(event);target.dropEvent(event)
+                self.assertFalse(target.drop_target)
+                self.assertEqual(page.card_order()[1],source.key)
+                foreign=Mock();foreign.source.return_value=None
+                target.dragEnterEvent(foreign);foreign.ignore.assert_called_once()
+                self.assertFalse(target.drop_target)
+            finally:
+                QThreadPool.globalInstance().waitForDone();app.processEvents();w.close();w.deleteLater();app.processEvents()
+
     def test_character_cards_reflow_without_losing_buttons(self):
         from character_overview import CharacterCards
         from PySide6.QtWidgets import QGroupBox,QPushButton,QVBoxLayout
