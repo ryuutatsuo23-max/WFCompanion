@@ -1,0 +1,13 @@
+## Interface: 16001
+## Title: Forever Storage
+## Notes: Bags and character bank inventory. Requires Forever Core.
+## Author: WoWForever
+## Version: 0.7.0
+## Dependencies: WFCore
+Bootstrap.lua
+Bags.lua
+Appearance.lua
+Interaction.lua
+InventoryUI.lua
+BankUI.lua
+Bindings.lua

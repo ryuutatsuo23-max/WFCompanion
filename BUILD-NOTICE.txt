@@ -1,0 +1,1 @@
+WFCompanion public build. Original branding; system font fallback. No Blizzard artwork, font files, bulk third-party catalogue or personal saves bundled. Qt/PySide are dynamically linked and replaceable; see notices.

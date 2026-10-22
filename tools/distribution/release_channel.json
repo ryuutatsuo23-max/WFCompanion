@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "repository": "ryuutatsuo23-max/WFCompanion",
+  "channel": "stable",
+  "release_api": "https://api.github.com/repos/ryuutatsuo23-max/WFCompanion/releases/latest",
+  "releases_page": "https://github.com/ryuutatsuo23-max/WFCompanion/releases",
+  "installer_asset": "WFCompanion-Setup.exe",
+  "checksum_asset": "WFCompanion-Setup.exe.sha256"
+}

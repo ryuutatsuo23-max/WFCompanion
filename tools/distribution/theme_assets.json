@@ -1,0 +1,185 @@
+{
+  "purpose": "Explicit local test appearance assets; public redistribution review pending",
+  "files": [
+    {
+      "path": "ashenvale.png",
+      "sha256": "2d99c3608e1643a595cc09c6a5ae0fe421327701305c922cc6c3f0a315f654db"
+    },
+    {
+      "path": "barrens.png",
+      "sha256": "e4f3713540d257a3c2dedfb731ce4e65c64c739edcc06940cc9815eba0f4858c"
+    },
+    {
+      "path": "character-art-sources.json",
+      "sha256": "d6fd70e40d35ffcba771ec625afef10b155623607df3b063a6c4fbfd65ea52da"
+    },
+    {
+      "path": "class-druid.png",
+      "sha256": "7279b172fa1be3bdcfc264ab3796ca0a986fbc7fddfe66f401cbc24f8ad90735"
+    },
+    {
+      "path": "class-hunter.png",
+      "sha256": "3e583b7656d746cf381f5d668a18427f53ab5d4bc90a56c452613c9983dd65f9"
+    },
+    {
+      "path": "class-mage.png",
+      "sha256": "a514a1ef2463fec39a1d43b9496ca0e974c1a00001eb7243d625c5a915cde858"
+    },
+    {
+      "path": "class-paladin.png",
+      "sha256": "a71fa0f430236da82668eb77e7b57fcbe40faba7326fe1788fec320f16a9d70e"
+    },
+    {
+      "path": "class-priest.png",
+      "sha256": "4f10865b2fb3c471c4a83820099fbc9ae1094fbeca853602bd33148fcdd22420"
+    },
+    {
+      "path": "class-rogue.png",
+      "sha256": "1d73a6d672ff4d18274595780d736a0757f5ca0666de5afa123bcd24250bf38e"
+    },
+    {
+      "path": "class-shaman.png",
+      "sha256": "3480da7d31c5f82a65e64cacad5d1dcbc916f913fac321d24cc0e5d03b4d410b"
+    },
+    {
+      "path": "class-warlock.png",
+      "sha256": "ffbf8dbd0c64c98122f2ea8148eb746d73c10ae05c97bbadbf713e9c0c411dc0"
+    },
+    {
+      "path": "class-warrior.png",
+      "sha256": "52136e311ef9f21816db58062cd8ac14ca3b2fcc6f767f634e1daadc8e713f55"
+    },
+    {
+      "path": "darkshore.png",
+      "sha256": "6b43a0be367f025d8915980aafd65fdcd4f5605fa15ef6e8707232e24c422a11"
+    },
+    {
+      "path": "orgrimmar.png",
+      "sha256": "f785194f73dc89f7eff6a733e2ef73ae267c122fcb2c37c0e25ee1a07566a866"
+    },
+    {
+      "path": "race-dwarf.png",
+      "sha256": "77a4013967c7c39528731fd2f3649ca60f946fbb9afa06cd70ee83f8df145482"
+    },
+    {
+      "path": "race-gnome.png",
+      "sha256": "1b34a511d0f319fc064942feed23d21b856964b92fad25b6d2d56803c5d72946"
+    },
+    {
+      "path": "race-human.png",
+      "sha256": "a194bd451c68bdb756b1e476d10d5370c3d1d0baf3ce46b0167027ab556f3a6f"
+    },
+    {
+      "path": "race-night-elf.png",
+      "sha256": "334c3842bfe4e5d55ded7e9a2e36d404379a8bd3265b9b403915704e4da377ae"
+    },
+    {
+      "path": "race-orc.png",
+      "sha256": "c9580b6b648393a012c8a30fe94423d4f588f0d56f8dfb64674c75014f3ec96f"
+    },
+    {
+      "path": "race-skyborne.png",
+      "sha256": "851e762ba4ea24f0dd1b89b97dca4ee58fa318bec8e80d9d1290092fb898b621"
+    },
+    {
+      "path": "race-tauren.png",
+      "sha256": "b01b54458b04b8e1796006db0687642157717476947e8acb2fc5d37bdb82a45b"
+    },
+    {
+      "path": "race-troll.png",
+      "sha256": "cd9dc6d39b42295825d4ec3893dc634eaeaaf6ffb0faa3899eca62ac1af97dee"
+    },
+    {
+      "path": "race-undead.png",
+      "sha256": "11c5bc754ec08f11feff04d40bc8808dc1055fca87135ea334e960bfb21b11fa"
+    },
+    {
+      "path": "stormwind.png",
+      "sha256": "6b85e1b386ff6cb72bd4f230ceb6aaaccaa4c57d7690eaa758c3e86ade790fc2"
+    },
+    {
+      "path": "wow_fonts/ARIALN.ttf",
+      "sha256": "1b11671e0cdc31de28701907d4afc36395d33f7e19d6038e4edef0ea1319b0e9"
+    },
+    {
+      "path": "wow_fonts/FRIZQT__.ttf",
+      "sha256": "8f798feb09a0e9dc97daf0a54b52a9a1a7b4cf7103fcb2aa1566ab36ac4dc41c"
+    },
+    {
+      "path": "wow_fonts/MORPHEUS.ttf",
+      "sha256": "0081bb4271b791ae923afe397427742d85d502edea3636bafb5476511b9fd4f9"
+    },
+    {
+      "path": "wow_fonts/Morpheus-README.TXT",
+      "sha256": "65d0b455de4815c8e1f5a4e5c0900191029fa2b45d93f48399a6575c7e261898"
+    },
+    {
+      "path": "wow_fonts/SKURRI.ttf",
+      "sha256": "7e036ca5b50780fc7a3311e243639ff9b2ef824339c1c4c0f511cadc0b5568bd"
+    },
+    {
+      "path": "wow_ui/Dropdown.PNG",
+      "sha256": "eb159536e1c78dfed32d5c86af5b14d73712b9d8185f29bdf92c1a5453248cf1"
+    },
+    {
+      "path": "wow_ui/UI-CheckBox-Check.PNG",
+      "sha256": "2659c101af204dec26cd5d6085e73aab93760d5b6d2937c030b902da177c4337"
+    },
+    {
+      "path": "wow_ui/UI-CheckBox-Up.PNG",
+      "sha256": "ef950464a86c01a1c4688226be2f0e205c60100a23fced5dd23af408bd80d07a"
+    },
+    {
+      "path": "wow_ui/UI-DialogBox-Background.PNG",
+      "sha256": "42d72bb302b2a9ab75940e17dc5b21514f87b9fec5dc118272caec9060e79164"
+    },
+    {
+      "path": "wow_ui/UI-DialogBox-Border.PNG",
+      "sha256": "c6657dff5391f1893476ebeaff2ac1ae146f97e892b707db7c092fba04b79c75"
+    },
+    {
+      "path": "wow_ui/UI-DialogBox-Header.PNG",
+      "sha256": "e03dbb565cf798ebf89b1a4549d67d8ea4d2b695f035475f49ad297db8a4fbf6"
+    },
+    {
+      "path": "wow_ui/UI-Panel-Button-Disabled.PNG",
+      "sha256": "e9de9a6b514ac19899454988f2e0c75f3c80518c48869ac8bc7bb3517813f955"
+    },
+    {
+      "path": "wow_ui/UI-Panel-Button-Down.PNG",
+      "sha256": "28357b2524514334f6a8fc14634aefbfcc7371301ec759b071a5ef3085a13995"
+    },
+    {
+      "path": "wow_ui/UI-Panel-Button-Highlight.PNG",
+      "sha256": "dc2e000b52ed77777fb1c1244f584b7dd70d0b820be1eeb181aa807759e84d18"
+    },
+    {
+      "path": "wow_ui/UI-Panel-Button-Up.PNG",
+      "sha256": "0d71d013d58129d05a472eae23f717bb34e865458ed3d8fd6ca4f90d934fc023"
+    },
+    {
+      "path": "wow_ui/UI-ScrollBar-Knob.PNG",
+      "sha256": "d404510606cba84a37a255e23740764907a3729da2de9d63eaa70443fee4108f"
+    },
+    {
+      "path": "wow_ui/UI-ScrollBar-ScrollDownButton-Up.PNG",
+      "sha256": "841b7493edb75410d0f35dbd2ccb37d72de8a90486191be962ce131b6c79c30e"
+    },
+    {
+      "path": "wow_ui/UI-ScrollBar-ScrollUpButton-Up.PNG",
+      "sha256": "70c60f876f07a02ccce4661f824d7b8ea778bfa083a9b3735d85b4ace98ab5d3"
+    },
+    {
+      "path": "wow_ui/UI-SliderBar-Background.PNG",
+      "sha256": "687fcbd4d3a765d25be194ae8d265a27625cdb0111c96d8f7e6e88035ac35afa"
+    },
+    {
+      "path": "wow_ui/UI-SliderBar-Border.PNG",
+      "sha256": "bf16d6eea4ab719432c978688e488805b416ae1e6d1a09cba7a569268bbfc8e6"
+    },
+    {
+      "path": "wow_ui/UI-SliderBar-Button-Horizontal.PNG",
+      "sha256": "577d93f9cfbacad6534eeffecdb5e123e8d684e7ff7c8695e9705cecb21ae189"
+    }
+  ]
+}

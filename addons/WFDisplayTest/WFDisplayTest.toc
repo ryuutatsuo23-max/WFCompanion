@@ -1,0 +1,8 @@
+## Interface: 16001
+## Title: Forever Display Test
+## Notes: Read-only native HP, mana, cooldown and buff display. No saved data.
+## Author: WoWForever local project
+## Version: 0.1.0
+## OptionalDeps: Blizzard_AuraContainer
+
+Display.lua

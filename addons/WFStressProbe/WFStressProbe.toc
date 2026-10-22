@@ -1,0 +1,18 @@
+## Interface: 16001
+## Title: Forever Stress Test API Probe
+## Notes: Automatic read-only API snapshots. /wfprobe optional. /reload saves reports.
+## Author: WoWForever local project
+## Version: 0.1.0
+## SavedVariables: WFStressProbeDB
+
+Probe.lua
+Inventory.lua
+Recipes.lua
+Trainers.lua
+TrainerDiagnostics.lua
+Bank.lua
+Party.lua
+Vendors.lua
+Auctions.lua
+Session.lua
+UI.lua

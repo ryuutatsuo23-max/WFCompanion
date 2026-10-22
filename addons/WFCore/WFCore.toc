@@ -1,0 +1,7 @@
+## Interface: 16001
+## Title: Forever Core
+## Notes: Shared services and local companion observations for Forever addons.
+## Author: WoWForever
+## Version: 0.7.0
+## SavedVariables: WFCoreDB
+Core.lua
