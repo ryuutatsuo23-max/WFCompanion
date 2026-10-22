@@ -11,7 +11,7 @@ import urllib.request
 from urllib.parse import urlsplit
 from urllib.error import HTTPError
 
-VERSION='0.1.11'
+VERSION='0.1.12'
 REPOSITORY='ryuutatsuo23-max/WFCompanion'
 ASSET='WFCompanion-Setup.exe'
 API=f'https://api.github.com/repos/{REPOSITORY}/releases/latest'
@@ -40,7 +40,16 @@ def candidate(document,current=VERSION):
         size=item.get('size')
         if type(size) is not int or not 0<size<=(MAX_INSTALLER if name==ASSET else 512):raise ValueError('Unexpected release size.')
         selected[name]=(url,size)
-    return dict(version=tag,installer=selected[ASSET],checksum=selected[ASSET+'.sha256'])
+    result=dict(version=tag,installer=selected[ASSET],checksum=selected[ASSET+'.sha256'])
+    prefix='WFCompanion-patch-from-'+current.removeprefix('v')
+    optional={}
+    for suffix,limit in (('.json',2_000_000),('.exe',MAX_INSTALLER),('.exe.sha256',512)):
+        name=prefix+suffix;matches=[a for a in assets if isinstance(a,dict) and a.get('name')==name]
+        url=f'https://github.com/{REPOSITORY}/releases/download/{tag}/{name}'
+        if len(matches)==1 and matches[0].get('browser_download_url')==url and type(matches[0].get('size')) is int and 0<matches[0]['size']<=limit:
+            optional[suffix]=(url,matches[0]['size'])
+    if len(optional)==3:result['patch']=dict(base=current.removeprefix('v'),asset=prefix+'.exe',metadata=optional['.json'],installer=optional['.exe'],checksum=optional['.exe.sha256'])
+    return result
 
 
 def request(url):
@@ -72,12 +81,16 @@ def download(release,directory,progress=None):
     directory=Path(directory).resolve();directory.mkdir(parents=True,exist_ok=True)
     # Revalidate the descriptor so callers cannot redirect this downloader.
     tag=release['version'];version(tag)
-    for name,field in ((ASSET,'installer'),(ASSET+'.sha256','checksum')):
+    asset=release.get('asset',ASSET)
+    if asset!=ASSET and not re.fullmatch(r'WFCompanion-patch-from-(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)\.exe',asset):raise ValueError('Invalid update asset')
+    for name,field in ((asset,'installer'),(asset+'.sha256','checksum')):
         if release[field][0]!=f'https://github.com/{REPOSITORY}/releases/download/{tag}/{name}':raise ValueError('Unexpected download location.')
     with request(release['checksum'][0]) as stream:raw=stream.read(513)
-    match=re.fullmatch(rb'([0-9a-fA-F]{64})[ \t]+\*?WFCompanion-Setup\.exe\s*',raw)
+    match=re.fullmatch(rb'([0-9a-fA-F]{64})[ \t]+\*?'+re.escape(asset.encode())+rb'\s*',raw)
     if not match:raise ValueError('Invalid installer checksum.')
-    expected=match[1].decode().lower();target=directory/(tag+'-'+ASSET)
+    expected=match[1].decode().lower()
+    if release.get('sha256',expected)!=expected:raise ValueError('Patch checksum disagreement')
+    target=directory/(tag+'-'+asset)
     partial=target.with_suffix('.part');digest=hashlib.sha256();size=0
     try:
         if progress:progress(0,release['installer'][1])

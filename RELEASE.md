@@ -1,17 +1,13 @@
-# WFCompanion 0.1.11
+# WFCompanion 0.1.12
 
-Settings now keeps the installed version visible above the update status, so you
-can confirm a successful upgrade even after the automatic check completes. This
-also removes a stray character from the previous status text.
+Adds support for optional smaller, exact-base updates and a Download full installer
+instead button. Eligible later releases can download only changed files while
+retaining the existing notification, progress, confirmation and restart flow.
 
-To test the 0.1.10 updater, save your work and reopen the existing companion with
-automatic update checks enabled. After about five seconds, accept the update
-notification. Download progress appears in Settings. Once the download is verified,
-confirm Update and restart. The companion should close, show installation progress,
-and reopen with Settings showing Installed version: 0.1.11. Manual Check for updates
-also triggers the notification; it is shown once per version per session.
+Unknown or incompatible bases and failed patch downloads use the full installer.
+Smaller updates keep a recovery copy and check application startup before reopening.
+Saved companion data and game addons remain separate. This version itself requires
+a full installer to introduce the new updater files.
 
-The update uses companion-only installation and preserves saved settings and
-records. No addon source or game compatibility changes are included. Storage 0.7.0
-automatic count replacement remains blocked pending live validation. The installer
-remains unsigned pending SignPath review. Windows may still show a warning.
+Public smaller-update deployment and second-PC validation remain pending. Windows
+publisher signing remains pending. No addon compatibility changes are included.

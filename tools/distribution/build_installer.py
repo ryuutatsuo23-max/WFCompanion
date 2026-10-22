@@ -14,7 +14,10 @@ from audit_payload import audit,ROOT
 
 
 def main():
-    parser=argparse.ArgumentParser();parser.add_argument('--iscc',type=Path);parser.add_argument('--public',action='store_true');args=parser.parse_args()
+    parser=argparse.ArgumentParser();parser.add_argument('--iscc',type=Path);parser.add_argument('--public',action='store_true')
+    parser.add_argument('--base-bundle',type=Path);parser.add_argument('--base-version');args=parser.parse_args()
+    if bool(args.base_bundle)!=bool(args.base_version):parser.error('--base-bundle and --base-version must be supplied together')
+    if args.base_bundle and (not args.public or not args.iscc):parser.error('Incremental packages require a public compiled build')
     compiler=args.iscc.resolve(strict=True) if args.iscc else None
     stage=ROOT/'build'/('installer-'+datetime.now().strftime('%Y%m%d-%H%M%S'))
     stage.mkdir(parents=True,exist_ok=False);payload=stage/'payload'
@@ -113,6 +116,13 @@ def main():
     (output/(named+'.sha256')).write_text(digest+'  '+named+'\n')
     manifest['stage']='public-build' if args.public else 'local-test-build';manifest['payload']=[dict(path=str(p.relative_to(payload)),sha256=hashlib.sha256(p.read_bytes()).hexdigest()) for p in sorted(payload.rglob('*')) if p.is_file()]
     (output/'build-manifest.json').write_text(json.dumps(manifest,indent=2))
+    if args.base_bundle:
+        from build_incremental import build
+        try:
+            report=build(args.base_bundle,stage/'dist/WFCompanion',args.base_version,version,output/'incremental',compiler)
+            print(json.dumps({'incremental':report}))
+        except ValueError as exc:
+            print(json.dumps({'incremental':'full installer required','reason':str(exc)}))
     print(json.dumps({'installer':str(installer),'application':str(stage/'dist/WFCompanion/WFCompanion.exe'),'sha256':digest}))
 
 

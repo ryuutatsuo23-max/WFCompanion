@@ -38,6 +38,8 @@ class Updates(Panel):
         self.install_button=host.button('Update and restart',self.install);self.install_button.setEnabled(False)
         self.check_button=host.button('Check for updates',self.check)
         self.box.addWidget(row(self.check_button,self.download_button,self.install_button))
+        self.full_button=host.button('Download full installer instead',self.download_full);self.full_button.setEnabled(False)
+        self.box.addWidget(self.full_button)
         self.progress=QProgressBar();self.progress.setRange(0,100);self.progress.hide();self.box.addWidget(self.progress)
         self.timer=QTimer(self);self.timer.setInterval(6*60*60*1000);self.timer.timeout.connect(self.check)
         if self.settings['automatic']:self.timer.start();QTimer.singleShot(5000,self.check)
@@ -51,6 +53,7 @@ class Updates(Panel):
         self.check_button.setEnabled(not self.busy)
         self.download_button.setEnabled(not self.busy and bool(self.release))
         self.install_button.setEnabled(not self.busy and bool(self.installer))
+        self.full_button.setEnabled(not self.busy and bool(self.release))
     def run_job(self,work,done):
         if self.busy:return
         self.busy=True;self.buttons();self.job=Job(work);self.job.result.done.connect(done);self.job.result.progress.connect(self.show_progress);QThreadPool.globalInstance().start(self.job)
@@ -79,7 +82,11 @@ class Updates(Panel):
         self.auto_install=auto_install;self.installer=None;self.progress.setValue(0);self.progress.show()
         self.notice.setText('Connecting to download…')
         release=dict(self.release)
-        self.run_job(lambda:releases.download(release,self.host.data.directory/'updates',self.job.result.progress.emit),self.downloaded)
+        from incremental_updates import fetch
+        self.run_job(lambda:fetch(release,self.host.data.directory/'updates',self.job.result.progress.emit),self.downloaded)
+    def download_full(self):
+        if self.busy or not self.release:return
+        self.release=dict(self.release);self.release.pop('patch',None);self.download(True)
     def downloaded(self,result,error):
         self.busy=False;self.installer=result;self.buttons()
         self.installer_hash=hashlib.sha256(result.read_bytes()).hexdigest() if result else None

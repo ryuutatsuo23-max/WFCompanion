@@ -23,7 +23,11 @@ DisableProgramGroupPage=yes
 AllowNoIcons=no
 PrivilegesRequired=lowest
 OutputDir={#Output}
+#ifdef PatchName
+OutputBaseFilename={#PatchName}
+#else
 OutputBaseFilename=WFCompanion-Setup
+#endif
 Compression=lzma2/fast
 SolidCompression=yes
 WizardStyle=modern dark includetitlebar
@@ -131,7 +135,11 @@ end;
 
 function HasAddons: Boolean;
 begin
+#ifdef PatchName
+  Result := False;
+#else
   Result := WizardIsComponentSelected('storage') or WizardIsComponentSelected('probe') or WizardIsComponentSelected('display');
+#endif
 end;
 
 procedure InitializeWizard;
@@ -202,3 +210,7 @@ begin
       MsgBox('The companion was installed, but addon installation did not finish. Close WoW and check folder permissions, then rerun setup with those addons selected. Details are in LocalAppData\WoWForever\Companion\addon-install-error.txt.', mbError, MB_OK);
   end;
 end;
+
+#ifdef PatchValidation
+#include PatchValidation
+#endif
