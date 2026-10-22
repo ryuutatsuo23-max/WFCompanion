@@ -14,6 +14,25 @@ from observed_inventory import ObservationStore
 
 
 class OverviewTests(unittest.TestCase):
+    def test_character_cards_reflow_without_losing_buttons(self):
+        from character_overview import CharacterCards
+        from PySide6.QtWidgets import QGroupBox,QPushButton,QVBoxLayout
+        app=QApplication.instance() or QApplication([])
+        cards=CharacterCards()
+        buttons=[]
+        try:
+            for i in range(4):
+                card=QGroupBox();box=QVBoxLayout(card);button=QPushButton(str(i));box.addWidget(button)
+                cards.grid.addWidget(card,i,0);buttons.append(button)
+            cards.resize(1150,400);cards.show();app.processEvents();cards.reflow()
+            self.assertGreater(cards.columns,1)
+            self.assertEqual(cards.grid.getItemPosition(1)[0],0)
+            cards.resize(450,800);app.processEvents();cards.reflow()
+            self.assertEqual(cards.columns,1)
+            self.assertEqual(cards.grid.count(),4)
+            self.assertTrue(all(button.parent() is not None for button in buttons))
+        finally:cards.close();cards.deleteLater();app.processEvents()
+
     def test_cards_use_explicit_source_identity_and_keep_data_unchanged(self):
         from profession_observations import ObservationCache,decode
         from test_profession_observations import inputs

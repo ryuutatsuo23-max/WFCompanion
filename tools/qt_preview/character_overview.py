@@ -2,7 +2,7 @@
 from datetime import datetime, timezone, timedelta
 import re
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QSizePolicy,QCheckBox,QWidget,QVBoxLayout,QGroupBox
+from PySide6.QtWidgets import QSizePolicy,QCheckBox,QWidget,QVBoxLayout,QGroupBox,QGridLayout
 from pathlib import Path
 import os
 from presentation import easy_mode,simple_observation
@@ -63,11 +63,32 @@ def summaries(data,now=None):
     return result
 
 
+class CharacterCards(QWidget):
+    """Reflow existing cards without rebuilding buttons or disturbing focus."""
+    def __init__(self):
+        super().__init__()
+        self.grid=QGridLayout(self);self.grid.setContentsMargins(0,0,0,0)
+        self.columns=1
+
+    def reflow(self):
+        cards=[self.grid.itemAt(i).widget() for i in range(self.grid.count())]
+        minimum=max(330,self.fontMetrics().horizontalAdvance('M')*34,
+                    max((w.minimumSizeHint().width() for w in cards),default=0))
+        columns=max(1,min(3,(self.width()+self.grid.spacing())//(minimum+self.grid.spacing())))
+        while self.grid.count():self.grid.takeAt(0)
+        for i,card in enumerate(cards):self.grid.addWidget(card,i//columns,i%columns)
+        for column in range(3):self.grid.setColumnStretch(column,1 if column<columns else 0)
+        self.columns=columns
+
+    def resizeEvent(self,event):
+        super().resizeEvent(event);self.reflow()
+
+
 class CharacterOverview(Panel):
     def __init__(self,host):
         super().__init__(host,'Your characters');self.host=host
         self.explanation=label('');self.box.addWidget(self.explanation)
-        self.cards=QWidget();self.cards_box=QVBoxLayout(self.cards)
+        self.cards=CharacterCards();self.cards_box=self.cards.grid
         self.cards_box.setContentsMargins(0,0,0,0);self.box.addWidget(self.cards)
         self.box.addWidget(row(host.button('Review saved game data',self.check_game_data),
                                host.button('Read professions save',host.show_profession_observations),
@@ -139,6 +160,7 @@ class CharacterOverview(Panel):
             if char['source_id'] in used:continue
             name=char['label']['name'] if char.get('label') else f"Saved character #{char['source_id']}"
             self.add_card(None,name,None,char,snapshot)
+        self.cards.reflow()
 
     def add_card(self,profile,name,values,char,snapshot):
         card=QGroupBox();card.setPalette(self.host.palette());box=QVBoxLayout(card)
@@ -169,7 +191,7 @@ class CharacterOverview(Panel):
         professions=self.host.button('Professions',lambda:self.host.show_profession_observations(target))
         professions.setEnabled(target is not None)
         professions.setToolTip('Open this saved character.' if target else 'Read a professions save and link the matching game character first.')
-        box.addWidget(row(bags,professions));self.cards_box.addWidget(card)
+        box.addWidget(row(bags,professions));self.cards_box.addWidget(card,self.cards_box.count(),0)
         self.card_buttons[profile if profile else ('saved',char['source_id'])]=(bags,professions)
 
     def open_card_inventory(self,profile):
