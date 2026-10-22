@@ -1,7 +1,7 @@
 # Code signing policy
 
-Current status: unsigned. A SignPath Foundation application is being prepared;
-acceptance and signing are not yet in place. Do not interpret the application
+Current status: unsigned. A SignPath Foundation application was submitted on
+22 October 2026 and is awaiting review. Acceptance and signing are not yet in place. Do not interpret the application
 or this policy as SignPath sponsorship or a guarantee of SmartScreen clearance.
 
 Maintainer, reviewer and intended release approver:
