@@ -3,31 +3,66 @@ from tempfile import TemporaryDirectory
 from unittest import TestCase,main
 from unittest.mock import patch
 from copy import deepcopy
+import json
 from companion import Companion,QApplication
-from saved_character_header import decode_character,HeaderObservations
+from saved_character_header import decode_character,decode_details,HeaderObservations,FIELDS,UNKNOWN
+from test_core_inventory_v2 import lua
 
-LINK={'name':'Tiny Atonement','realm':'Realm','guid':'Player-1-ABC'}
-MAPPING=b'DataStore_CharacterIDs={List={[1]="Default.Realm.Tiny Atonement"},Set={["Default.Realm.Tiny Atonement"]=1},Count=1};DataStore_CharacterGUIDs={[1]="Player-1-ABC"}'
-INFO=b'DataStore_Characters_Info={[1]={name="Tiny Atonement",BaseInfo=2898570,lastUpdate=1792711839}}'
+LINK={'name':'Tiny Atonement','realm':'Realm','guid':'Player-1-ABC','version':'1.60.1','interface':16001,'environment':'Test','build':'70532','source':'unused'}
+DETAILS=dict(schema=1,classID=5,classToken='PRIEST',className='Priest',level=10,observedAt=1792711839,status={k:'ok' for k in FIELDS})
 
+def saved(details=DETAILS):
+    character=dict(identity=dict(guid=LINK['guid'],firstName='Tiny',lastName='Atonement',realm='Realm'),client=dict(version='1.60.1',interface=16001),locations={})
+    if details is not None:character['details']=details
+    return ('WFCoreDB='+lua(dict(schema=1,producer='WFCore',characters={LINK['guid']:character}))).encode()
 
 class HeaderTests(TestCase):
-    def test_packed_fields_and_saved_time(self):
-        self.assertEqual(decode_character(INFO,MAPPING,LINK),('Priest',10,1792711839))
-        self.assertEqual(decode_character(INFO.replace(b'2898570',b'982018'),MAPPING,LINK)[:2],('Mage',2))
+    def test_core_details_without_datastore(self):
+        self.assertEqual(decode_character(saved(),LINK),('Priest',10,1792711839))
 
-    def test_wrong_identity_and_lua_code_rejected(self):
-        for mapping in (MAPPING.replace(b'Player-1-ABC',b'Player-1-DEF'),
-                        MAPPING.replace(b'Realm',b'Other'),
-                        MAPPING.replace(b'[1]="Player-1-ABC"',b'[1]="Player-1-ABC",[2]="Player-1-ABC"')):
-            with self.assertRaises(ValueError):decode_character(INFO,mapping,LINK)
-        with self.assertRaises(ValueError):decode_character(INFO+b';print("execute")',MAPPING,LINK)
-        with self.assertRaises(ValueError):decode_character(INFO.replace(b'2898570',b'true'),MAPPING,LINK)
+    def test_missing_future_and_malformed_status_are_unknown(self):
+        for details in (None,{},dict(DETAILS,schema=2),dict(DETAILS,schema=True),dict(DETAILS,status={}),dict(DETAILS,status=dict.fromkeys(FIELDS,'yes'))):
+            self.assertEqual(decode_character(saved(details),LINK),UNKNOWN)
 
-    def test_unknown_values_and_unlinked_profile(self):
-        self.assertEqual(decode_character(INFO.replace(b'2898570',b'0'),MAPPING,LINK)[:2],('Unknown class',None))
+    def test_unknown_replaces_stale_values_and_keeps_partial_fields(self):
+        record=deepcopy(DETAILS);record['status']['level']='unknown';record['status']['observedAt']='unknown'
+        self.assertEqual(decode_details(record),('Priest',None,None))
+        record['status']['className']='unknown'
+        self.assertEqual(decode_details(record)[0],'Priest')
+        record['status']['classToken']='unknown';record['status']['classID']='unknown'
+        self.assertEqual(decode_details(record),UNKNOWN)
+
+    def test_invalid_values_and_conflicting_class(self):
+        for value in (True,0,-1,1001,'10'):
+            self.assertIsNone(decode_details(dict(DETAILS,level=value))[1])
+        for value in (True,0,9007199254740992,'now'):
+            self.assertIsNone(decode_details(dict(DETAILS,observedAt=value))[2])
+        self.assertEqual(decode_details(dict(DETAILS,classToken='MAGE'))[0],'Unknown class')
+        record=deepcopy(DETAILS);record.update(classID=0,classToken='bad-token',className='|cfffFake')
+        self.assertEqual(decode_details(record)[0],'Unknown class')
+
+    def test_guid_realm_client_and_executable_content_rejected(self):
+        for field,value in (('guid','Player-1-DEF'),('realm','Other'),('version','Other'),('interface',1),('name','Other')):
+            with self.assertRaises(ValueError):decode_character(saved(),dict(LINK,**{field:value}))
+        with self.assertRaises(ValueError):decode_character(saved()+b';print("execute")',LINK)
+
+    def test_refresh_cache_unknown_and_alt_isolation_without_writes(self):
         with TemporaryDirectory() as tmp:
-            self.assertEqual(HeaderObservations().describe(Path(tmp),'missing')[0],'No saved character details')
+            root=Path(tmp);source=root/'WFCore.lua';source.write_bytes(saved())
+            linked=dict(LINK,source=str(source))
+            (root/'character_links.json').write_text(json.dumps({'version':1,'links':[{'profile':'one','identity':linked}]}))
+            header=HeaderObservations();before=source.read_bytes()
+            self.assertIn('Priest',header.describe(root,'one')[0]);self.assertEqual(source.read_bytes(),before)
+            with patch('saved_character_header.decode_character',side_effect=AssertionError('redundant parse')):
+                self.assertIn('Priest',header.describe(root,'one')[0])
+            source.write_bytes(saved(dict(DETAILS,level=11))+b'\n')
+            self.assertIn('Level 11',header.describe(root,'one')[0])
+            self.assertEqual(header.describe(root,'alt')[0],'No saved character details')
+            source.write_bytes(saved(None))
+            self.assertIn('Level Unknown',header.describe(root,'one')[0])
+            source.write_bytes(saved(dict(DETAILS,observedAt=9007199254740991)))
+            text=header.describe(root,'one')[0]
+            self.assertIn('Priest',text);self.assertIn('Observation time Unknown',text)
 
     def test_planning_control_moves_without_changing_manual_profiles(self):
         from companion import Companion,QApplication
