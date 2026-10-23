@@ -1,7 +1,61 @@
 # Forever Core 0.7.0
 
 Shared dependency for Forever addons. Interface 16001; current supported client
-identity remains 1.60.1. This version is validated offline, not newly live-tested.
+identity remains 1.60.1. Offline validation and the limited user-reported save
+verification below do not complete the broader live-validation checklist.
+
+On October 22, 2026, the user reported normal logout persisted Beta WFCore.lua
+at 23:01:12; parsing succeeded with two character records on build 70532, and the
+companion reader accepted three Storage snapshots. Verification itself was
+read-only. This report does not establish settings/history preservation, current
+live character identity or completion of the pending lifecycle/API tests.
+
+Saved-file integration remains active. The optical bridge is parked because its
+strip is too distracting; no replacement live transport was established. Storage
+eligibility is unchanged and automatic count replacement remains blocked. See
+research/WFCORE_LIVE_VALIDATION_CHECKLIST.md in the repository for remaining checks.
+
+## Saved-data welcome and command fix
+
+Welcome.lua shows a compact 400x244 panel on the first PLAYER_ENTERING_WORLD of
+the UI load, unless dismissed previously. It explains manual /reload and normal
+logout/exit saves, and that a connected WF Companion shows saved information.
+It never invokes reload, logout, exit, import or a live transport. Dismiss closes
+the panel for this UI load. Check **Don't show again** before dismissing to store
+`WFCoreDB.settings.coreWelcomeDismissed=true` in the
+existing account-wide SavedVariables envelope. The preference survives normal
+client save/load across characters in that account save, not across separate
+client/account folders. Unsupported save envelopes are never repaired or changed;
+their dismissal lasts for the current UI load only.
+
+The checkbox starts unchecked for a new account. Use **/wfcore welcome** to reopen
+with the saved preference selected; uncheck it and dismiss to restore the reminder
+on the next login/reload. Simply reopening does not change the saved preference.
+There is no inventory window or B binding in Core. Existing settings, character
+history, producer/schema versions and Storage eligibility remain unchanged. This
+optional settings key needs no companion parser change; snapshot addonVersion
+still belongs to Storage. Core package version remains 0.7.0 / API 1; distinguish
+the source-only command fix from the installed welcome by commit and file hashes.
+
+Wording was checked against the current file-based companion reader
+(`tools/qt_preview/saved_character_connection.py`), the October 22 logout report,
+and the Forever recorder author's documented save points
+([Forever State](https://github.com/tzcnt/forever-data)). That external project is
+supporting API-behavior evidence, not live validation of this welcome. No external
+code was copied. The user's logout report confirms persistence on build 70532;
+the user subsequently confirmed the welcome renders and checked dismissal survives
+logout/login on October 23. The installed /wfcore welcome incorrectly opened bags:
+Storage's legacy SlashCmdList.WFCORE overwrote the original welcome handler.
+The source-only fix registers /wfcore under the distinct WFCOREWELCOME key.
+Storage's WFCORE compatibility handler, /wfstorage, /wfbags, /wf and B binding
+remain untouched. Corrected reopening, unchecking to restore the reminder,
+reload/normal-exit timing and broader integration still need live checks. The local extracted
+Forever UI includes BackdropTemplate, UIPanelButtonTemplate and font-string APIs.
+
+Focused tests in `tests/test_core_welcome.py` use synthetic saves only: first entry,
+re-entry, dismissal/reopen, cross-character save/load, legacy settings/history,
+unsupported saves, wording and absence of reload/input/timer side effects. No
+installed addon or real save was changed while implementing or testing this UI.
 
 ## Ownership
 
@@ -28,6 +82,51 @@ fields. It rejects ordinary writes to db/character/owner/inWorld and locks its
 metatable, while other addon state remains writable. This guards accidental writes,
 not deliberate rawset/debug bypasses. No saved-data or lifecycle semantics change.
 
+## Guarded-read contract (current API 1 behavior)
+
+These helpers are characterized directly in tests/test_core_reads.py with synthetic
+Lua 5.1 APIs. Synthetic restricted values are not proof of live-client secret-value
+behavior. Field now preflights table access before indexing; other read-helper
+contracts are unchanged. This fix was installed and hash-verified on October 22,
+2026; focused live validation of this fix remains pending.
+
+| Helper | Current contract and caller responsibility |
+| --- | --- |
+| Access(value, record) | Requires issecretvalue and canaccessvalue; rejects secret/denied values and missing or throwing guards. A truthy record argument additionally requires canaccesstable approval. Returns a boolean, not a validity/type check. |
+| Read(fn, ...) | Calls a function with the supplied arguments under pcall and processes only its first result. Returns a value/status pair as below. |
+| Field(record, key) | Rejects non-table records with nil/error, then requires Access(record, true) before indexing. Denied records or missing/throwing guards return nil/restricted without lookup. Accessible records are indexed under Read's pcall and the result is guarded. Callers still supply a safe key. |
+| Integer(value, low, high) | Inclusive integer-range predicate for an already accessible value and finite numeric bounds. Does not invoke access guards or protect comparisons with pcall. Invalid bounds may raise; infinite bounds can allow infinity. |
+| Stamp() | Read(GetServerTime), with the same statuses. Does not independently require a nonnegative integer timestamp; callers needing that domain must validate it. |
+
+Read statuses, in evaluation order:
+
+- unavailable: fn is not a function.
+- error: the function or field lookup throws; the error object is discarded.
+- restricted: value/table access cannot be established, including missing guards.
+- unknown: the readable result is nil. With missing guards, nil is restricted.
+- ok: a readable boolean (including false), finite number (including zero and
+  fractional/negative values), string, or accessible table.
+- invalid: an accessible unsupported type, NaN or infinite number.
+
+Strings have control characters and pipe markup replaced by spaces, then are
+limited to 160 bytes; this is not Unicode-aware truncation. Tables are returned by
+reference, not copied or recursively sanitized. Their fields need separate guarded
+reads. Missing fields normally return nil/unknown; nil records and throwing
+metamethod lookups return nil/error. Handled read failures do not create runtime
+diagnostic entries, log raw errors or write to saves.
+
+### Scope of the Field precheck
+
+Denied tables no longer invoke __index or return an apparently readable field.
+For accessible tables, missing fields remain unknown, throwing lookups remain error,
+and restricted results remain restricted. Non-table inputs are explicitly unsupported.
+Storage already obtains records through Read; Field now rechecks access at each
+field. Loss of required item fields leaves collection unknown or refuses an action;
+loss of optional fields omits that metadata. No Storage code or save schema changes.
+Tests cover access loss after the initial successful record read. Integer's finite
+numeric-bound precondition and Stamp's lack of timestamp-domain validation remain
+unchanged. The precheck is not an atomicity guarantee or key-access validation.
+
 ## API 1 lifecycle guarantees
 
 These describe the existing lifecycle, not additional readiness or recovery APIs.
@@ -47,6 +146,39 @@ safe to repeat; Notify must work before Start. All Start attempts precede Core's
 automatic Notify pass, but module order within each pass is unspecified. A failing
 hook does not suppress another module or the later Notify pass. Do not depend on
 registry changes made during dispatch taking effect in that same pass.
+
+### Dispatch limits and caller rules
+
+Synthetic tests in tests/test_core_dispatch.py cover the dispatch guards. Fixtures
+remain bounded even if a guard regresses. These fixes were installed and
+hash-verified on October 22, 2026; focused live validation of these fixes remains
+pending. API and saved-schema versions are unchanged.
+
+- Notify is synchronous. Calls made while a notification pass is active return
+  immediately; nested requests are discarded, not queued or replayed. Hook failures
+  retain existing diagnostics and peer isolation. After the pass, a later independent
+  Notify runs normally. Hooks must not rely on a nested request refreshing a peer
+  that already ran earlier in the pass.
+- Event dispatch captures the callback count at entry. On can append callbacks,
+  but additions do not run in that delivery; they are eligible on the next delivery,
+  including a separately nested delivery. Order, arguments and error isolation are
+  unchanged. Duplicate registrations remain; total registrations across deliveries
+  are not capped. Direct mutation of Core's event tables is unsupported.
+- Register during Start/Notify changes a table being traversed with pairs. Same-pass
+  participation has no supported guarantee. A successfully registered module is
+  available to subsequent passes. Module dispatch order remains unspecified.
+- A bounded nested event delivered directly by the synthetic event driver runs
+  synchronously and resumes the outer callbacks afterward, preserving arguments.
+  This does not establish how the live client schedules events.
+
+Register modules and event handlers during addon initialization, outside dispatch;
+do not repeatedly register them from Start on every world entry. Keep Notify hooks
+as bounded refresh consumers that do not require nested Notify calls. Module
+registration during traversal still has no same-pass guarantee. The guards do not
+prevent arbitrary work inside hooks, repeated registration across deliveries or
+direct recursive event delivery. Storage source is unchanged; integration tests
+confirm its Notify hook refreshes both views once per independent pass, with no
+save changes. No installed addon or save is changed by this source work.
 
 inWorld is an event-state flag, not a readiness guarantee. Modules needing current
 character storage must check inWorld, db, character and owner at use time, including

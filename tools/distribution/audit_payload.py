@@ -16,7 +16,8 @@ def allowed(name):
     path=PurePosixPath(name)
     if path.is_absolute() or '..' in path.parts:return False
     if len(path.parts)==3 and path.parts[0]=='addons' and path.parts[1] in ADDONS:
-        return path.suffix in ('.lua','.toc','.xml','.md')
+        return path.suffix in ('.lua','.toc','.xml','.md') or path.name=='LICENSE'
+    if name=='addons/WFStorage/branding/forever-storage-logo.png':return True
     if len(path.parts)==3 and path.parts[:2] in (('tools','qt_preview'),('tools','offline_preview')):
         return path.suffix=='.py' and not path.name.startswith(('test_','benchmark_','manual_'))
     return False

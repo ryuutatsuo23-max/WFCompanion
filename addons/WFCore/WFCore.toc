@@ -5,3 +5,4 @@
 ## Version: 0.7.0
 ## SavedVariables: WFCoreDB
 Core.lua
+Welcome.lua

@@ -1,13 +1,23 @@
 local _, ns = ...
 local window, search, heading, status, footer, previous, nextPage, settingsPanel, empty
+local sellJunkButton,guildButton
 local rows, tabs, controls, settingsRows = {}, {}, {}, {}
-local page, scope, settingsPage = 1, "all", "Appearance"
+local page, scope, settingsPage = 1, "bags", "Appearance"
 local hideReason, lastInteraction
 local viewedGUID, favoritesOnly = nil, false
 local characterPanel, characterHeading, characterButtons, characterPage = nil, nil, {}, 1
 local refreshButton, normalButton, favoriteButton, characterButton, currentButton
-local optionPanel,optionTitle,optionSlider,optionKey
+local optionPanel,optionKey
+local settingsSliders={}
+local lockButton
+local sliderKeys={opacity=true,windowScale=true,fontSize=true,columns=true,iconSize=true}
 local optionButtons={}
+local categoryHeaders={}
+local collapsedCategories={}
+local filterLabel,clearFilters
+local settingsTarget,settingsTitle="bags",nil
+local mainSettingsButton,settingsHelp
+local settingsTabs={}
 local backdrop={bgFile="Interface\\Buttons\\WHITE8X8",edgeFile="Interface\\Buttons\\WHITE8X8",edgeSize=1}
 local qualityColors={[0]={0.45,0.45,0.45},[1]={0.65,0.65,0.65},[2]={0.2,0.8,0.3},
     [3]={0.2,0.5,1},[4]={0.7,0.3,0.95},[5]={1,0.55,0.12}}
@@ -114,7 +124,7 @@ function ns.InventoryRows(filter, query, includeUnknown, currentOnly)
                     if type(item)=="table" and (item.state=="observed" or (includeUnknown and item.state=="unknown")) then
                         local name=type(item.name)=="string" and item.name or (item.itemID and "Item "..item.itemID or "Unknown slot")
                         local category=ns.ItemCategory(item)
-                        local selected=ns.ViewOptions().category
+                        local selected=ns.ViewOptions(currentOnly and "bank" or "bags").category
                         if (selected=="All" or selected==category) and (name.." "..tostring(item.itemID or "")):lower():find(query,1,true) then
                             result[#result+1]={item=item,name=name,scope=locationName,at=snapshot.finishedAt,
                                 category=category,owner=guid,snapshot=snapshot,favorite=ns.IsFavorite(guid,item.itemID)}
@@ -132,82 +142,128 @@ function ns.CharacterLabel(identity)
 end
 
 local settingsDefs={
-    Organize={{"category","Category filter"},{"order","Display order"},{"favoritesFirst","Favorites first"}},
-    Appearance={{"view","View"},{"theme","Theme"},{"opacity","Background"},{"iconSize","Icon size"},
+    Main={{"theme","Theme"},{"dimPoor","Dim poor quality"},{"nativeUI","Native UI"}},
+    Organize={{"category","Category filter"},{"order","Display order"},{"favoritesFirst","Favorites first"},
+        {"showUnknown","Unresolved slots"},{"showDetails","Scan details"},{"bindB","B shortcut"}},
+    Appearance={{"view","View"},{"opacity","Background"},{"iconSize","Icon size"},
         {"columns","Grid columns"},{"fontSize","Text size"},{"windowScale","Window scale"}},
-    Inventory={{"order","Display order"},{"showUnknown","Unresolved slots"},{"showDetails","Scan details"},
-        {"dimPoor","Dim poor quality"},{"lockWindow","Lock position"},{"bindB","B shortcut"},{"nativeUI","Native UI"}},
 }
 local function optionText(key,value)
     if type(value)=="boolean" then return value and "On" or "Off" end
     if key=="opacity" or key=="windowScale" then return math.floor(value*100+0.5).."%" end
     return tostring(value)
 end
-local function openOptions(key)
-    if key=="nativeUI" then ns.ToggleNativeUI(); return end
+local function openOptions(key,anchor)
+    if key=="nativeUI" then if optionPanel then optionPanel:Hide() end; ns.ToggleNativeUI(); return end
+    if optionPanel and optionPanel:IsShown() and optionKey==key then optionPanel:Hide(); return end
     if not optionPanel then
-        optionPanel=CreateFrame("Frame",nil,UIParent,"BackdropTemplate")
-        optionPanel:SetSize(300,280); optionPanel:SetPoint("CENTER",UIParent,"CENTER",320,0)
+        optionPanel=CreateFrame("Frame",nil,settingsPanel,"BackdropTemplate")
         optionPanel:SetBackdrop(backdrop); optionPanel:SetClampedToScreen(true); optionPanel:EnableMouse(true)
-        optionPanel:SetFrameStrata("FULLSCREEN_DIALOG")
-        optionPanel:SetMovable(true); optionPanel:RegisterForDrag("LeftButton")
-        optionPanel:SetScript("OnDragStart",function() optionPanel:StartMoving() end)
-        optionPanel:SetScript("OnDragStop",function() optionPanel:StopMovingOrSizing() end)
-        ns.EnableEscapeClose(optionPanel,ns.CloseInventoryWindows)
-        optionTitle=label(optionPanel,14); optionTitle:SetPoint("TOPLEFT",16,-16); optionTitle:SetSize(240,28)
-        button(optionPanel,"X",262,-12,26,function() optionPanel:Hide() end)
+        optionPanel:SetFrameStrata("TOOLTIP")
         for i=1,6 do
             local b
-            b=button(optionPanel,"",16,-54-(i-1)*38,268,function()
-                ns.SetViewOption(optionKey,b.value); optionPanel:Hide()
+            b=button(optionPanel,"",4,-4-(i-1)*28,270,function()
+                ns.SetViewOption(optionKey,b.value,settingsTarget); optionPanel:Hide()
             end)
             optionButtons[i]=b
         end
-        optionSlider=CreateFrame("Slider",nil,optionPanel,"BackdropTemplate")
-        optionSlider:SetPoint("TOPLEFT",24,-90); optionSlider:SetSize(252,22)
-        optionSlider:SetOrientation("HORIZONTAL"); optionSlider:SetBackdrop(backdrop)
-        optionSlider:SetBackdropColor(0.2,0.25,0.3,1)
-        optionSlider:SetThumbTexture("Interface\\Buttons\\UI-SliderBar-Button-Horizontal")
-        optionSlider:SetValueStep(1); optionSlider:SetObeyStepOnDrag(true)
-        optionSlider:SetScript("OnValueChanged",function(_,value)
-            if optionKey then
-                local rounded=math.floor(value+0.5)
-                ns.SetViewOption(optionKey,rounded/100)
-                optionTitle:SetText((optionKey=="opacity" and "Background: " or "Window scale: ")..rounded.."%")
-            end
-        end)
     end
-    optionKey=nil
-    local o=ns.ViewOptions(); local t=ns.Themes[o.theme]
-    optionPanel:SetBackdropColor(unpack(t.bg)); optionPanel:SetBackdropBorderColor(unpack(t.accent))
-    local caption=key
-    for _,defs in pairs(settingsDefs) do for _,def in ipairs(defs) do if def[1]==key then caption=def[2] end end end
-    optionTitle:SetText(caption..": "..optionText(key,o[key]))
-    local slider=key=="opacity" or key=="windowScale"
-    if slider then
-        optionSlider:SetMinMaxValues(key=="opacity" and 50 or 70,key=="opacity" and 100 or 130)
-        optionSlider:SetValue(o[key]*100); optionSlider:Show(); ns.SetTooltip(optionSlider,ns.OptionHelp[key])
-    else optionSlider:Hide() end
+    local o=ns.ViewOptions(settingsTarget); local t=ns.Themes[o.theme]
+    ns.ApplyPanelTheme(optionPanel,t)
     local values=ns.ViewChoices[key] or {true,false}
-    optionPanel:SetSize(300,slider and 160 or 76+#values*38)
+    optionPanel:ClearAllPoints(); optionPanel:SetPoint("TOPLEFT",anchor,"BOTTOMLEFT",0,-2)
+    optionPanel:SetSize(278,8+#values*28)
     for i,b in ipairs(optionButtons) do
-        if not slider and values[i]~=nil then
-            b.value=values[i]; b:SetText(optionText(key,b.value)..(b.value==o[key] and " (selected)" or "")); b:Show()
-            ns.SetTooltip(b,ns.OptionHelp[key] or caption)
+        if values[i]~=nil then
+            b.value=values[i]; b:SetText(optionText(key,b.value)..(b.value==o[key] and "  *" or "")); b:Show()
+            ns.SetTooltip(b,ns.OptionHelp[key])
         else b:Hide() end
     end
     optionKey=key; optionPanel:Show(); ns.RefreshUI()
 end
 local function updateSettings(o,t)
+    o=ns.ViewOptions(settingsTarget); t=ns.Themes[o.theme]
+    -- Settings can refresh while Bags is hidden, including first use and dropdowns.
+    for _,b in ipairs(controls) do
+        if b:GetParent()==settingsPanel or (optionPanel and b:GetParent()==optionPanel) then
+            ns.ApplyControlTheme(b,t)
+        end
+    end
+    local isMain=settingsPage=="Main"
+    local windowName=settingsTarget=="guild" and "Guild" or settingsTarget=="bank" and "Bank" or "Bags"
+    settingsTitle:SetText(isMain and "Main settings" or windowName.." settings")
+    mainSettingsButton:SetText(isMain and "Back to "..windowName.." settings" or "Main settings (all windows)")
+    settingsHelp:SetText(isMain and "Shared theme and quality dimming." or settingsTarget=="guild" and "Guild layout only. Logs and Info are read-only." or "Drag sliders or choose from dropdowns.\nAlt+left-click an item to toggle its favorite.")
+    for key,b in pairs(settingsTabs) do
+        b:SetText(key)
+        if key==settingsPage then
+            b:SetBackdropBorderColor(unpack(t.accent)); b.caption:SetTextColor(unpack(t.accent))
+        end
+        if isMain then b:Hide() else b:Show() end
+    end
+    local defs={}
+    for _,def in ipairs(settingsDefs[settingsPage]) do
+        local key=def[1]
+        local hiddenGuild=settingsTarget=="guild" and (key=="showUnknown" or key=="showDetails" or key=="bindB" or key=="favoritesFirst")
+        if not hiddenGuild and (settingsTarget~="bank" or (key~="view" and key~="showUnknown" and key~="showDetails" and key~="bindB")) then defs[#defs+1]=def end
+    end
+    local y=isMain and 86 or 120
     for i,b in ipairs(settingsRows) do
-        local def=settingsDefs[settingsPage][i]
+        local def=defs[i]; local slider=settingsSliders[i]
         b.key=def and def[1] or nil
         if def then
-            b:SetText(def[1]=="nativeUI" and "Native UI: show / hide" or def[2]..":  "..optionText(def[1],o[def[1]]))
-            ns.SetTooltip(b,ns.OptionHelp[def[1]]); b:Show()
-        else b:Hide() end
+            local key=def[1]
+            if sliderKeys[key] then
+                b:Hide(); b.key=nil
+                local sameControl=slider.key==key and slider.settingsTarget==settingsTarget and slider:IsShown()
+                -- Hiding/reanchoring a slider in its value callback releases the
+                -- native drag. Keep the active control stable across refreshes.
+                if not sameControl then
+                    slider:ClearAllPoints(); slider:SetPoint("TOPLEFT",24,-y-24)
+                end
+                slider.caption:ClearAllPoints(); slider.caption:SetPoint("TOPLEFT",settingsPanel,"TOPLEFT",16,-y)
+                slider.caption:SetText(def[2]..": "..optionText(key,o[key])); slider.caption:SetTextColor(unpack(t.text))
+                slider.sliderAccent=t.classic and t.accent or {.25,.75,.95}
+                slider:SetBackdropColor(t.bg[1]+.055,t.bg[2]+.055,t.bg[3]+.055,1)
+                slider:SetBackdropBorderColor(unpack(t.classic and t.accent or {.3,.4,.5}))
+                local thumb=slider:GetThumbTexture()
+                if thumb then thumb:SetVertexColor(unpack(t.classic and t.accent or {1,1,1})) end
+                slider.syncing=true
+                if not slider.userChanging then
+                    if key=="opacity" or key=="windowScale" then
+                        slider:SetMinMaxValues(key=="opacity" and 50 or 70,key=="opacity" and 100 or 130)
+                        slider:SetValue(o[key]*100)
+                    else
+                        slider:SetMinMaxValues(1,#ns.ViewChoices[key])
+                        for index,value in ipairs(ns.ViewChoices[key]) do if value==o[key] then slider:SetValue(index) end end
+                    end
+                end
+                slider.syncing=false; slider.key=key; slider.settingsTarget=settingsTarget; slider:Show(); slider.caption:Show()
+                ns.SetTooltip(slider,ns.OptionHelp[key]); y=y+56
+            else
+                slider.key=nil; slider:Hide(); slider.caption:Hide()
+                b:ClearAllPoints(); b:SetPoint("TOPLEFT",16,-y)
+                b:SetText(key=="nativeUI" and "Native UI: show / hide" or def[2]..": "..optionText(key,o[key]).."  v")
+                ns.SetTooltip(b,ns.OptionHelp[key]); b:Show(); y=y+34
+            end
+        else b:Hide(); slider.key=nil; slider:Hide(); slider.caption:Hide() end
     end
-    settingsPanel:SetBackdropColor(unpack(t.bg)); settingsPanel:SetBackdropBorderColor(unpack(t.accent))
+    local height=y+60
+    local scale=math.min(1,UIParent:GetHeight()/(height+24),UIParent:GetWidth()/330)
+    -- Keep the title and navigation still while pages grow downward. Preserve
+    -- existing center-based saved positions; screen clamping remains authoritative.
+    if settingsPanel:IsShown() and (height~=settingsPanel:GetHeight() or scale~=settingsPanel:GetScale()) then
+        local x,y=settingsPanel:GetCenter(); local px,py=UIParent:GetCenter()
+        local oldScale=settingsPanel:GetScale()
+        if type(x)=="number" and type(y)=="number" and type(px)=="number" and type(py)=="number" then
+            local left=(x-settingsPanel:GetWidth()/2)*oldScale
+            local top=(y+settingsPanel:GetHeight()/2)*oldScale
+            settingsPanel:ClearAllPoints()
+            settingsPanel:SetPoint("TOPLEFT",UIParent,"CENTER",(left-px)/scale,(top-py)/scale)
+        end
+    end
+    settingsPanel:SetHeight(height); settingsPanel:SetScale(scale)
+    ns.ApplyPanelTheme(settingsPanel,t)
 end
 function ns.ApplyWindowScale()
     if not window then return end
@@ -216,25 +272,64 @@ function ns.ApplyWindowScale()
         UIParent:GetWidth()/(window:GetWidth()+24)))
 end
 function ns.RefreshUI()
-    if not window or not window:IsShown() then return end
+    if not window or not window:IsShown() then
+        if settingsPanel and settingsPanel:IsShown() then updateSettings() end
+        return
+    end
     local o=ns.ViewOptions(); local t=ns.Themes[o.theme]
     local items,notes=ns.InventoryRows(scope,search:GetText(),o.showUnknown)
+    local character,guid=ns.ViewedCharacter()
+    local historical=guid~=ns.owner
+    local notice=ns.StatusNotice()
+    local location=character and character.locations.bags
+    local liveBags=scope=="bags" and not historical and location and not location.attempt
+        and location.latest and location.latest==ns.inventory.current.bags
+        and location.latest.coverage=="complete"
+    local compactBags=liveBags and not o.showDetails and notice=="Ready"
+    local freeText=liveBags and ns.CapacityText(location.latest) or nil
     if favoritesOnly then
         local filtered={}; for _,entry in ipairs(items) do if entry.favorite then filtered[#filtered+1]=entry end end
         items=filtered
     end
     ns.SortInventory(items,o.order)
     local initial=ns.InventoryLayout(o,#items)
-    local pages=math.max(1,math.ceil(#items/initial.capacity)); page=math.min(page,pages)
+    local pages=math.max(1,math.ceil(#items/initial.capacity)); if o.order~="Category" then page=math.min(page,pages) end
     local layout=ns.InventoryLayout(o,math.max(0,#items-(page-1)*initial.capacity))
+    local section
+    if o.order=="Category" then
+        local sections=ns.CategoryPages(items,initial.columns,initial.step,initial.step*(initial.grid and 4 or 10)+96,initial.capacity,collapsedCategories)
+        pages=#sections; page=math.min(page,pages); section=sections[page]
+        layout.bottom=layout.top+math.max(initial.step,section.height)+8
+        layout.height=layout.bottom+74
+    end
+    if compactBags then
+        layout.top=layout.top-32; layout.bottom=layout.bottom-32; layout.height=layout.height-32
+    end
+    local filterSummary=ns.FilterSummary(search:GetText(),o.category,favoritesOnly)
+    if filterSummary then
+        filterLabel:SetText(filterSummary); filterLabel:SetTextColor(unpack(t.accent))
+        filterLabel:ClearAllPoints(); filterLabel:SetPoint("TOPLEFT",16,-layout.top-3)
+        filterLabel:SetSize(layout.width-146,22); filterLabel:Show()
+        clearFilters:ClearAllPoints(); clearFilters:SetPoint("TOPRIGHT",-16,-layout.top); clearFilters:Show()
+        layout.top=layout.top+32; layout.bottom=layout.bottom+32; layout.height=layout.height+32
+    else filterLabel:Hide(); clearFilters:Hide() end
+    for _,header in ipairs(categoryHeaders) do header:Hide() end
+    for i,group in ipairs(section and section.headers or {}) do
+        local header=categoryHeaders[i]
+        if not header then
+            header=ns.CreateCategoryHeader(window,function(key)
+                collapsedCategories[key]=not collapsedCategories[key]; page=1; ns.RefreshUI()
+            end); categoryHeaders[i]=header
+        end
+        header:ClearAllPoints(); header:SetPoint("TOPLEFT",16,-layout.top-group.y)
+        header.categoryKey=group.key; header:SetSize(layout.width-32,22)
+        header.caption:SetSize(layout.width-32,22); header.caption:SetText(group.text); header.caption:SetTextColor(unpack(t.accent)); header:Show()
+    end
     window:SetSize(layout.width,layout.height)
-    window:SetBackdropColor(t.bg[1],t.bg[2],t.bg[3],o.opacity)
-    window:SetBackdropBorderColor(t.accent[1],t.accent[2],t.accent[3],0.65)
-    local character,guid=ns.ViewedCharacter()
-    local historical=guid~=ns.owner
+    ns.ApplyPanelTheme(window,t,o.opacity)
     heading:SetText(ns.CharacterLabel(character and character.identity or {})..(historical and " (saved)" or ""))
-    heading:SetTextColor(unpack(t.text)); heading:SetWidth(layout.width-140)
-    if o.showDetails then status:SetText(ns.notice.."\n"..notes)
+    heading:SetTextColor(unpack(t.text)); heading:SetWidth(layout.width-180)
+    if o.showDetails then status:SetText(notice.."\n"..notes)
     else
         -- Keep freshness visible while hiding diagnostic terminology by default.
         local compact={}
@@ -242,26 +337,35 @@ function ns.RefreshUI()
             local basic=line:match("^(.-) / ") or line
             compact[#compact+1]=basic
         end
-        status:SetText(ns.notice~="Ready" and ns.notice or table.concat(compact,"\n"))
+        status:SetText(notice~="Ready" and notice or table.concat(compact,"\n"))
     end
     status:SetTextColor(0.65,0.73,0.8); status:SetSize(layout.width-32,o.showDetails and 60 or 28)
+    if compactBags then status:Hide() else status:Show() end
     search:SetWidth(layout.width-118)
     for _,b in ipairs(controls) do
-        b:SetBackdropColor(t.bg[1]+0.055,t.bg[2]+0.055,t.bg[3]+0.055,1)
-        b:SetBackdropBorderColor(0.24,0.28,0.33,1); b.caption:SetTextColor(unpack(t.text))
+        ns.ApplyControlTheme(b,t)
     end
     for name,b in pairs(tabs) do
         if name==scope then b:SetBackdropBorderColor(unpack(t.accent)); b.caption:SetTextColor(unpack(t.accent)) end
     end
+    ns.RefreshLockButton(lockButton,"bags")
     refreshButton:SetText(historical and "View age" or "Refresh")
     favoriteButton:SetText(favoritesOnly and "Favorites *" or "Favorites")
+    if sellJunkButton then
+        if ns.vendor and ns.vendor.open and not historical then sellJunkButton:Show() else sellJunkButton:Hide() end
+        ns.SetTooltip(sellJunkButton,ns.vendor and ns.vendor.status or "Sell gray items; favorites are kept")
+    end
+    if guildButton then
+        if ns.guildVault and ns.guildVault.open then guildButton:Show() else guildButton:Hide() end
+    end
     for i,row in ipairs(rows) do
-        local entry=i<=layout.capacity and items[(page-1)*layout.capacity+i] or nil
+        local placement=section and section.entries[i]
+        local entry=section and (placement and placement.entry) or (not section and i<=layout.capacity and items[(page-1)*layout.capacity+i] or nil)
         row.entry=entry
         if entry then
             local item=entry.item
             local column=(i-1)%layout.columns; local line=math.floor((i-1)/layout.columns)
-            row:ClearAllPoints(); row:SetPoint("TOPLEFT",16+column*layout.step,-layout.top-line*layout.step)
+            row:ClearAllPoints(); row:SetPoint("TOPLEFT",16+(placement and placement.x or column*layout.step),-layout.top-(placement and placement.y or line*layout.step))
             local size=layout.grid and o.iconSize or layout.step-4
             row:SetSize(layout.grid and size or layout.width-32,size)
             row:SetBackdropColor(0.015,0.02,0.03,0.85)
@@ -278,7 +382,7 @@ function ns.RefreshUI()
             row.text:SetFont("Fonts\\FRIZQT__.TTF",o.fontSize)
             row.text:SetText(entry.name); row.text:SetTextColor(unpack(t.text))
             row.text:ClearAllPoints(); row.text:SetPoint("LEFT",size+8,0); row.text:SetSize(layout.width-size-100,size)
-            row.badge:SetText(o.order=="Category" and entry.category:sub(1,3) or entry.scope=="bank" and "K" or "B")
+            row.badge:SetText(entry.scope=="bank" and "K" or "B")
             row.badge:SetTextColor(unpack(t.accent))
             row.star:SetText(entry.favorite and "*" or "")
             if layout.grid then row.text:Hide(); row.badge:Show() else row.text:Show(); row.badge:Hide() end
@@ -286,7 +390,7 @@ function ns.RefreshUI()
         else row:Hide() end
     end
     empty:SetText(#items==0 and (favoritesOnly and "No favorites here. Alt+left-click an item to mark it."
-        or search:GetText()~="" and "No matching items" or "No observed items in this view") or "")
+        or filterSummary and "No matching items - clear filters to show more" or "No observed items in this view") or "")
     empty:ClearAllPoints(); empty:SetPoint("TOPLEFT",18,-layout.top-8); empty:SetTextColor(unpack(t.text))
     previous:ClearAllPoints(); previous:SetPoint("TOPLEFT",16,-layout.bottom)
     nextPage:ClearAllPoints(); nextPage:SetPoint("TOPLEFT",100,-layout.bottom)
@@ -295,8 +399,8 @@ function ns.RefreshUI()
     favoriteButton:ClearAllPoints(); favoriteButton:SetPoint("TOPLEFT",364,-layout.bottom)
     footer:ClearAllPoints(); footer:SetPoint("TOPLEFT",16,-layout.bottom-32)
     footer:SetSize(layout.width-32,36); footer:SetTextColor(0.65,0.73,0.8)
-    footer:SetText(#items.." shown  |  Page "..page.." / "..pages.."  |  "..o.order.." / "..o.category.."\nAlt+left: favorite  |  "..
-        (historical and "Saved view: read-only" or "Live slots: right-click to use / equip / bank"))
+    footer:SetText(#items..(o.order=="Category" and " matching  |  Page " or " shown  |  Page ")..page.." / "..pages.."  |  "..(freeText or o.order.." / "..o.category).."\nAlt+left: favorite  |  "..
+        (historical and "Saved view: read-only" or scope=="bank" and not ns.inventory.bankOpen and "Cached bank: read-only" or "Right-click to use / equip / bank"))
     if characterPanel and characterPanel:IsShown() then
         local choices=ns.SavedCharacters()
         characterPage=math.max(1,math.min(characterPage,math.max(1,math.ceil(#choices/6))))
@@ -310,13 +414,15 @@ function ns.RefreshUI()
                 b:Show()
             else b:Hide() end
         end
-        characterPanel:SetBackdropColor(unpack(t.bg)); characterPanel:SetBackdropBorderColor(unpack(t.accent))
+        ns.ApplyPanelTheme(characterPanel,t)
     end
     updateSettings(o,t); ns.ApplyWindowScale()
     if ns.RefreshBankUI then ns.RefreshBankUI() end
 end
 local function create()
     window=CreateFrame("Frame",nil,UIParent,"BackdropTemplate")
+    -- Settings may be the first caller; only ShowInventory should open Bags.
+    window:Hide()
     window:SetSize(480,310); window:SetPoint("CENTER"); window:SetClampedToScreen(true)
     window:SetFrameStrata("DIALOG"); window:EnableMouse(true); window:SetMovable(true); window:SetBackdrop(backdrop)
     local saved=ns.db and ns.db.settings.position
@@ -326,6 +432,8 @@ local function create()
     end
     ns.EnableEscapeClose(window,ns.CloseInventoryWindows)
     window:RegisterForDrag("LeftButton")
+    window:SetScript("OnReceiveDrag",function() ns.DropInFreeSlot("bags") end)
+    window:SetScript("OnMouseUp",function(_,mouse) if mouse=="LeftButton" then ns.DropInFreeSlot("bags") end end)
     window:SetScript("OnDragStart",function() if not ns.ViewOptions().lockWindow then window:StartMoving() end end)
     window:SetScript("OnDragStop",function()
         window:StopMovingOrSizing()
@@ -343,15 +451,16 @@ local function create()
     exitButton:ClearAllPoints(); exitButton:SetPoint("TOPRIGHT",-12,-12)
     local cog=button(window,"",0,0,26,function()
         characterPanel:Hide()
-        if settingsPanel:IsShown() then settingsPanel:Hide() else settingsPanel:Show() end
+        ns.ToggleSettings("bags")
     end)
     cog:ClearAllPoints(); cog:SetPoint("TOPRIGHT",-44,-12)
     cog:SetNormalTexture("Interface\\Buttons\\UI-OptionsButton")
     ns.SetTooltip(cog,"Settings")
     local sortButton=button(window,"Sort",0,0,46,function() ns.SortLiveInventory("bags") end)
-    sortButton:ClearAllPoints(); sortButton:SetPoint("TOPRIGHT",-78,-12)
+    sortButton:ClearAllPoints(); sortButton:SetPoint("TOPRIGHT",-112,-12)
+    lockButton=ns.CreateLockButton(window,"bags"); lockButton:SetPoint("TOPRIGHT",-78,-12)
     ns.SetTooltip(sortButton,"Sort your bags using WoW's sort rules. Moves items; unavailable in combat or saved-character views.")
-    for i,value in ipairs({"all","bags","bank"}) do
+    for i,value in ipairs({"bags","bank","all"}) do
         local selected=value
         tabs[value]=button(window,value:sub(1,1):upper()..value:sub(2),16+(i-1)*64,-58,58,function()
             scope=selected; page=1; ns.RefreshUI()
@@ -361,6 +470,8 @@ local function create()
         if not viewedGUID then ns.inventory.Request("bags"); ns.inventory.Request("bank") end
         ns.RefreshUI()
     end)
+    sellJunkButton=button(window,"Sell junk",296,-58,90,function() if ns.RequestJunkSale then ns.RequestJunkSale() end end)
+    guildButton=button(window,"Guild",394,-58,70,function() if ns.ShowGuildVault then ns.ShowGuildVault() end end)
     local searchLabel=label(window,12); searchLabel:SetPoint("TOPLEFT",16,-98); searchLabel:SetText("Search")
     searchLabel:SetTextColor(0.65,0.73,0.8)
     search=CreateFrame("EditBox",nil,window,"InputBoxTemplate")
@@ -368,18 +479,24 @@ local function create()
     search:SetScript("OnTextChanged",function() page=1; ns.RefreshUI() end)
     search:SetScript("OnEscapePressed",function() search:ClearFocus(); ns.CloseInventoryWindows() end)
     search:SetScript("OnEnterPressed",function() search:ClearFocus() end)
+    filterLabel=label(window,11)
+    clearFilters=button(window,"Clear filters",0,0,112,function()
+        favoritesOnly=false; page=1
+        ns.SetViewOption("category","All","bags")
+        search:SetText(""); search:ClearFocus(); ns.RefreshUI()
+    end)
+    ns.SetTooltip(clearFilters,"Clear this window's search and Favorites filter. Reset this window's category filter. Saved favorites and display order stay unchanged.")
     status=label(window,11); status:SetPoint("TOPLEFT",16,-122); status:SetSize(448,28)
     empty=label(window,13)
     for i=1,40 do
-        local row=CreateFrame("Button",nil,window,"BackdropTemplate"); row:SetBackdrop(backdrop)
+        local row=CreateFrame("Button",nil,window,"BackdropTemplate,InsecureActionButtonTemplate"); row:SetBackdrop(backdrop)
         row.icon=row:CreateTexture(nil,"ARTWORK"); row.icon:SetTexCoord(0.06,0.94,0.06,0.94)
         row.text=label(row,14); row.count=label(row,14); row.count:SetJustifyH("RIGHT")
         row.badge=label(row,9); row.badge:SetPoint("TOPLEFT",3,-3)
         row.star=label(row,15); row.star:SetPoint("TOPRIGHT",-3,-1); row.star:SetTextColor(1,0.8,0.25)
         row:RegisterForClicks("LeftButtonUp","RightButtonUp")
-        row:SetScript("OnClick",function(_,mouse)
-            ns.ItemClick(row.entry,mouse,row)
-        end)
+        ns.EnableItemDrag(row)
+        ns.ConfigureItemButton(row)
         row:SetScript("OnEnter",function()
             if not row.entry or not GameTooltip then return end
             local e=row.entry
@@ -392,7 +509,7 @@ local function create()
             GameTooltip:AddLine("Recorded: "..tostring(when or "Unknown"),0.7,0.8,0.9)
             GameTooltip:AddLine("Last seen: "..ns.SnapshotAge(e.at),0.7,0.8,0.9)
             GameTooltip:AddLine("Alt+left-click: toggle favorite",1,0.8,0.25)
-            GameTooltip:AddLine(ns.LiveEntry(e) and "Right-click: use / equip / bank. Shift+left: split." or "Saved or outdated view: read-only",0.7,0.8,0.9)
+            GameTooltip:AddLine(ns.ActionHint(e),0.7,0.8,0.9)
             GameTooltip:AddLine("Snapshot only; counts may have changed.",1,1,1); GameTooltip:Show()
         end)
         row:SetScript("OnLeave",function() if GameTooltip then GameTooltip:Hide() end end)
@@ -450,26 +567,48 @@ local function create()
             ns.db.settings.settingsPosition={x=x-px/scale,y=y-py/scale}
         end
     end)
-    local title=label(settingsPanel,16); title:SetPoint("TOPLEFT",16,-16); title:SetText("Inventory settings")
+    settingsTitle=label(settingsPanel,16); settingsTitle:SetPoint("TOPLEFT",16,-16); settingsTitle:SetText("Bags settings")
     button(settingsPanel,"X",268,-12,26,function() settingsPanel:Hide() end)
-    for i,name in ipairs({"Appearance","Inventory","Organize"}) do
+    mainSettingsButton=button(settingsPanel,"Main settings (both windows)",16,-48,278,function()
+        if optionPanel then optionPanel:Hide() end
+        settingsPage=settingsPage=="Main" and "Appearance" or "Main"; ns.RefreshUI()
+    end)
+    for i,name in ipairs({"Appearance","Organize"}) do
         local selected=name
-        button(settingsPanel,name,16+(i-1)*94,-48,90,function() settingsPage=selected; ns.RefreshUI() end)
+        settingsTabs[name]=button(settingsPanel,name,16+(i-1)*142,-82,136,function() if optionPanel then optionPanel:Hide() end; settingsPage=selected; ns.RefreshUI() end)
     end
     for i=1,7 do
         local b
         b=button(settingsPanel,"",16,-86-(i-1)*34,278,function()
             if not b.key then return end
-            page=1; openOptions(b.key)
+            page=1; openOptions(b.key,b)
         end)
         settingsRows[i]=b
+        local slider=CreateFrame("Slider",nil,settingsPanel,"BackdropTemplate")
+        slider:SetSize(260,20); slider:SetOrientation("HORIZONTAL"); slider:SetBackdrop(backdrop)
+        slider:SetBackdropColor(.2,.25,.3,1); slider:SetThumbTexture("Interface\\Buttons\\UI-SliderBar-Button-Horizontal")
+        slider:SetValueStep(1); slider:SetObeyStepOnDrag(true)
+        slider.caption=label(settingsPanel,12); slider.caption:SetSize(278,22)
+        slider:SetScript("OnValueChanged",function(_,value)
+            if slider.syncing or not slider.key then return end
+            if optionPanel then optionPanel:Hide() end
+            local rounded=math.floor(value+.5); local key=slider.key
+            local selected=(key=="opacity" or key=="windowScale") and rounded/100 or ns.ViewChoices[key][rounded]
+            if selected~=nil then
+                slider.userChanging=true
+                ns.SetViewOption(key,selected,settingsTarget)
+                slider.userChanging=false
+            end
+        end)
+        settingsSliders[i]=slider
     end
-    local help=label(settingsPanel,11); help:SetPoint("BOTTOMLEFT",16,16); help:SetSize(278,40)
-    help:SetText("Choose an option; percentages use sliders.\nAlt+left-click an item to toggle its favorite.")
+    settingsHelp=label(settingsPanel,11); settingsHelp:SetPoint("BOTTOMLEFT",16,16); settingsHelp:SetSize(278,40)
+    settingsHelp:SetText("Drag sliders or choose from dropdowns.\nAlt+left-click an item to toggle its favorite.")
     settingsPanel:SetScript("OnHide",function() if optionPanel then optionPanel:Hide() end end)
     settingsPanel:Hide()
     window:SetScript("OnShow",ns.RefreshUI)
     window:SetScript("OnHide",function()
+        ns.CloseItemSplit(window)
         settingsPanel:Hide()
         characterPanel:Hide()
         if ns.db then ns.db.settings.lastWindowHide={reason=hideReason or "external or parent hidden",at=ns.Stamp(),lastInteraction=lastInteraction} end
@@ -483,17 +622,30 @@ end
 SLASH_WFSTORAGE1="/wfstorage"
 SLASH_WFSTORAGE2="/wfbags"
 SLASH_WFSTORAGE3="/wf"
+function ns.ToggleSettings(target)
+    if not window then create() end
+    target=target=="guild" and "guild" or target=="bank" and "bank" or "bags"
+    if settingsPanel:IsShown() and settingsTarget==target then settingsPanel:Hide(); return end
+    if optionPanel then optionPanel:Hide() end
+    characterPanel:Hide(); settingsTarget=target; settingsPage="Appearance"
+    settingsPanel:Show(); updateSettings()
+end
 function ns.ShowInventory(selectedScope)
     if not window then create() end
     if ns.inventory.bankOpen and not (ns.db and ns.db.settings.position) then
         window:ClearAllPoints(); window:SetPoint("CENTER",UIParent,"CENTER",250,0)
     end
     viewedGUID=nil; scope=selectedScope or "bags"; page=1
+    ns.inventory.EnsureFresh("bags")
+    if ns.inventory.bankOpen then ns.inventory.EnsureFresh("bank") end
     window:Show(); ns.RefreshUI()
 end
-SlashCmdList.WFSTORAGE=function()
-    if not window then create(); ns.RefreshUI()
-    elseif window:IsShown() then close("slash toggle") else window:Show() end
+SlashCmdList.WFSTORAGE=function(message)
+    if type(message)=="string" and message:lower():match("^%s*guild%s*$") and ns.ShowGuildVault then
+        ns.ShowGuildVault();return
+    end
+    if window and window:IsShown() then close("slash toggle")
+    else ns.ShowInventory("bags") end
 end
 
 -- Compatibility for existing integrations; slash ownership belongs to Storage.

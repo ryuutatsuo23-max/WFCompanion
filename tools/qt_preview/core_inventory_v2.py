@@ -32,7 +32,7 @@ def parse_snapshot(snap,guid,scope,kind):
         require(type(container.get('readable')) is bool,'invalid capacity flag.')
         require(integer(size,0,200) if container['readable'] else size is None,'invalid container capacity.')
         containers[bag]=container
-    totals=defaultdict(int);counts=Counter();per={bag:Counter() for bag in containers};seen=set()
+    totals=defaultdict(int);names={};counts=Counter();per={bag:Counter() for bag in containers};seen=set()
     for slot in array(snap.get('slots'),2400):
         require(isinstance(slot,dict),'invalid slot row.')
         bag,index=slot.get('bag'),slot.get('slot')
@@ -46,6 +46,9 @@ def parse_snapshot(snap,guid,scope,kind):
             require(integer(slot.get('itemID'),1,2147483647) and integer(slot.get('count'),1,2147483647),'invalid item/count.')
             require(slot['itemStatus']=='ok' and slot['idStatus']=='ok' and slot.get('presence') is not False and slot.get('presenceAfter') is not False,'contradictory occupied evidence.')
             totals[slot['itemID']]+=slot['count']
+            item_name=slot.get('name')
+            if isinstance(item_name,str) and 0<len(item_name)<=512:
+                names.setdefault(slot['itemID'],item_name)
         else:
             require('itemID' not in slot and 'count' not in slot,'non-item row contains ownership.')
             if state=='empty':
@@ -79,4 +82,4 @@ def parse_snapshot(snap,guid,scope,kind):
             positives=sorted(i for i in expected if i>=0);negatives=[i for i in expected if i<0]
             require(positives==list(range(len(positives))) and 1<=len(positives)<=11 and len(negatives)==1,'bag declaration mismatch.')
     name=' '.join(identity.get(k,'') for k in ('firstName','lastName')).strip() or guid
-    return Observation(guid,name,scope,str(client.get('build','Unknown')),started,finished,snap['coverage'],counts['unknown'],tuple(sorted(totals.items())),kind=='attempt',2,counts['observed'],counts['empty'],snap['scanStatus'],identity.get('realm',''),client['version'],client['interface'],snap['addonVersion'])
+    return Observation(guid,name,scope,str(client.get('build','Unknown')),started,finished,snap['coverage'],counts['unknown'],tuple(sorted(totals.items())),kind=='attempt',2,counts['observed'],counts['empty'],snap['scanStatus'],identity.get('realm',''),client['version'],client['interface'],snap['addonVersion'],tuple(sorted(names.items())))

@@ -31,6 +31,11 @@ def main():
         raw=source.read_bytes()
         if hashlib.sha256(raw).hexdigest()!=row['sha256']:raise ValueError('Source changed during staging.')
         target.write_bytes(raw)
+    package_manifest=ROOT/'tools/distribution/addon_packages.json'
+    if package_manifest.exists():
+        shutil.copy2(package_manifest,payload/'addon_packages.json')
+        from install_addons import package_metadata
+        package_metadata(payload/'addons',['WFCore','WFStorage'])
     # Local testing includes the existing catalogue. Public redistribution review
     # remains a separate release gate; no command here publishes this build.
     source=ROOT/'tools/offline_preview/data/item_sample.json'

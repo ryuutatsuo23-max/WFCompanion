@@ -2,6 +2,7 @@ local _, ns = ...
 local module = {bankOpen=false, jobs={}, serial=0, current={}}
 ns.Register("WFStorage", module)
 function module.Notify()
+    if ns.ReconcileActionFeedback then ns.ReconcileActionFeedback() end
     if ns.RefreshUI then ns.RefreshUI() end
     if ns.RefreshBankUI then ns.RefreshBankUI() end
 end
@@ -34,6 +35,12 @@ local function declarations(scope)
 end
 local function allowed(scope)
     return ns.inWorld and ns.character and (scope ~= "bank" or module.bankOpen)
+end
+-- Scope declarations shared with direct actions; no snapshot or saved-data writes.
+function module.ActionContainers(scope)
+    if scope~="bags" and scope~="bank" then return {} end
+    local ids=declarations(scope)
+    return ids
 end
 function module.Cancel(scope,reason)
     local job = module.jobs[scope]
@@ -203,6 +210,13 @@ function module.Request(scope)
         pending[scope]=nil
         if not pcall(module.Scan,scope) then ns.notice="Inventory scan unavailable" end
     end)
+end
+-- A user action can discover an invalidated view between event-driven scans.
+-- Recover collection without cancelling a scan already in progress or replaying
+-- the action. Presentation never promotes an incomplete attempt to latest.
+function module.EnsureFresh(scope)
+    if not allowed(scope) then return end
+    if not module.current[scope] and not pending[scope] and not module.jobs[scope] then module.Request(scope) end
 end
 function module.Start() module.Request("bags") end
 ns.On("BANKFRAME_OPENED",function() module.bankOpen=true; module.Request("bank") end)

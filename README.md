@@ -11,7 +11,9 @@ Download **WFCompanion-Setup.exe** from [Releases](https://github.com/ryuutatsuo
 Run it and choose Companion only, or select the addons you want. Python and
 developer tools are not required. Windows 10 (build 19041+) or Windows 11, x64.
 WoW is optional for offline companion use; addon installation requires a compatible
-client folder containing Wow.exe. Close the game before installing addons.
+client folder containing Wow.exe or WowB.exe. Existing users can choose **Page → Addons** to install Bags & Bank with required Core. Existing code is backed up; game saves are preserved. Finish copying before /reload; first installs or new modules may require a full game restart. The companion never reloads or exits WoW for you.
+
+The bundled addon revisions are Core 0.7.0 (4022228) and Storage 0.7.0 (47d3e8f), tested on Forever Beta 70532/interface 16001. Readable guild tabs and permission transitions remain untested; future builds are unverified. Old combined-Core installations require a separately reviewed migration and are blocked before addon files change. Companion updates alone do not update game addons automatically.
 
 The welcome guide lets you choose Easy/Advanced mode, colours, text size and tabs.
 Desktop and Start menu shortcuts open the companion. Saved preferences and records are kept during updates.
@@ -20,7 +22,7 @@ Desktop and Start menu shortcuts open the companion. Saved preferences and recor
 
 Version 0.1.14 checks shortly after startup and every five minutes while automatic checks are enabled. A persistent toast appears at the upper right when a newer stable release is available. Choose **Update** or **Cancel**, or check manually in Settings. Cancelling dismisses that version for the current session.
 
-Downloads show progress. After verification, confirm **Update and restart**. The companion closes, applies the update and reopens without repeating the setup wizard. Save unfinished work first.
+Downloads show progress. After verification, confirm **Update and restart**. The companion closes, applies the update and reopens without repeating the setup wizard. The checked-by-default **Save settings before updating** option saves Settings before restarting. Character/item editor drafts still require explicit saving.
 
 Matching installations can download a smaller package containing changed files. Other versions or modified installations use the full installer automatically. **Download full installer instead** remains available in Settings. Smaller updates retain a recovery backup and run a startup check; the full installer is also available for repair after an interrupted update.
 
@@ -29,6 +31,8 @@ Older versions keep their existing notification behaviour until updated. To test
 ## Everyday layout
 
 Use the **Page** dropdown beside character/playstyle controls to navigate. Its label shows the current page. Getting Started and the setup guide are in Settings. Optional **Start with Windows** is available there and in the welcome guide, off by default; it starts the installed app when you sign in.
+
+**Saved addon inventory** displays linked saved Bags & Bank snapshots directly, with recorded item names and timestamps. Partial scans remain subtotals and unopened banks stay Unknown. This read-only view does not change manual plans or enable automatic count replacement.
 
 ## Appearance
 

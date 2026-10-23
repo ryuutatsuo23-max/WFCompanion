@@ -177,7 +177,7 @@ begin
   WizardForm.WizardSmallBitmapImage.Height := WizardForm.WizardSmallBitmapImage.Height - ScaleY(10);
   ClientPage := CreateInputDirPage(wpSelectComponents, 'WoW Forever folder',
     'Choose the client for the selected addons',
-    'Select _forever_ or _classic_beta_ containing Wow.exe. Close WoW first. Existing addon code is backed up; game saves and other addons are preserved.', False, '');
+    'Select _forever_ or _classic_beta_ containing Wow.exe or WowB.exe. Existing code is backed up; saves are preserved. Reload updated addons; newly added addons may require restarting WoW.', False, '');
   ClientPage.Add('Client folder:');
   ClientPage.Values[0] := GetPreviousData('ClientFolder', ExpandConstant('{autopf32}\World of Warcraft\_forever_'));
 end;
@@ -193,8 +193,8 @@ begin
   Result := True;
   if (CurPageID = ClientPage.ID) and HasAddons then begin
     Name := ExtractFileName(RemoveBackslashUnlessRoot(ClientPage.Values[0]));
-    Result := ((Name = '_forever_') or (Name = '_classic_beta_')) and FileExists(AddBackslash(ClientPage.Values[0]) + 'Wow.exe');
-    if not Result then MsgBox('Choose a Forever client folder containing Wow.exe.', mbError, MB_OK);
+    Result := ((Name = '_forever_') or (Name = '_classic_beta_')) and (FileExists(AddBackslash(ClientPage.Values[0]) + 'Wow.exe') or FileExists(AddBackslash(ClientPage.Values[0]) + 'WowB.exe'));
+    if not Result then MsgBox('Choose a Forever client folder containing Wow.exe or WowB.exe.', mbError, MB_OK);
   end;
 end;
 
@@ -213,7 +213,7 @@ begin
     if WizardIsComponentSelected('display') then Selected := Selected + ',WFDisplayTest';
     if Copy(Selected, 1, 1) = ',' then Delete(Selected, 1, 1);
     if not Exec(ExpandConstant('{app}\WFCompanion.exe'), '--install-addons "' + ClientPage.Values[0] + '" --addons "' + Selected + '"', '', SW_HIDE, ewWaitUntilTerminated, Code) or (Code <> 0) then
-      MsgBox('The companion was installed, but addon installation did not finish. Close WoW and check folder permissions, then rerun setup with those addons selected. Details are in LocalAppData\WoWForever\Companion\addon-install-error.txt.', mbError, MB_OK);
+      MsgBox('The companion was installed, but addon installation did not finish. Check the game folder and permissions, then rerun setup with those addons selected. Details are in LocalAppData\WoWForever\Companion\addon-install-error.txt.', mbError, MB_OK);
   end;
 end;
 

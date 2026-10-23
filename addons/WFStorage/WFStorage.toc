@@ -2,12 +2,16 @@
 ## Title: Forever Storage
 ## Notes: Bags and character bank inventory. Requires Forever Core.
 ## Author: WoWForever
+## X-License: GPL-3.0-only
 ## Version: 0.7.0
 ## Dependencies: WFCore
 Bootstrap.lua
 Bags.lua
 Appearance.lua
 Interaction.lua
+BagSlots.lua
 InventoryUI.lua
 BankUI.lua
 Bindings.lua
+Vendor.lua
+GuildVault.lua

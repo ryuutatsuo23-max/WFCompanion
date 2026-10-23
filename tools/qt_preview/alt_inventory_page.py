@@ -11,7 +11,7 @@ class AltInventoryPage(Panel):
     PAGE_SIZE=100
 
     def __init__(self,host):
-        super().__init__(host,'All characters · Inventory & Bank')
+        super().__init__(host,'All characters · Manual inventory records')
         self.host=host; self.data=host.data; self.items=[]; self.coverage=[]; self.page=0; self.stale=True
         self.box.addWidget(label('Read-only overview of applied local records, including unsaved applied changes. Editor drafts are excluded. Manual records can be incomplete; no records means Unknown, not empty.'))
         self.character=host.combo([],self.filters_changed)

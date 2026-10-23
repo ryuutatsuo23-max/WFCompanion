@@ -41,7 +41,7 @@ jobs:
         run: |
           python -B -m unittest discover -s tools/distribution -p 'test_*.py' -q
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          foreach ($suite in @('test_release_updates.py','test_first_run.py','test_public_appearance.py','test_navigation_startup.py','test_update_flow.py','test_character_overview.py','test_profession_observations*.py','test_close_behavior.py','test_saved_character_connection.py')) {
+          foreach ($suite in @('test_addons_page.py','test_observed_inventory.py','test_core_inventory_v2.py','test_release_updates.py','test_first_run.py','test_public_appearance.py','test_navigation_startup.py','test_update_flow.py','test_character_overview.py','test_profession_observations*.py','test_close_behavior.py','test_saved_character_connection.py')) {
             python -B -m unittest discover -s tools/qt_preview -p $suite -q
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           }

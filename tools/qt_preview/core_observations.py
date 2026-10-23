@@ -39,6 +39,7 @@ class Observation:
     client_version: str = ''
     interface: int = 0
     producer_version: str = ''
+    item_names: tuple = ()
 
 
 def integer(value, low, high):

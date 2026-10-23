@@ -153,6 +153,9 @@ class Companion(SettingsMixin, Preview):
         activity.box.addWidget(label('Only state changes and reminders are logged. Up to 200 rows; never saved automatically.'))
         self.journal=add('Auction Journal',JournalPage(self)); self.support=add('Auto-support',SupportPage(self))
         self.build_settings(self.page_layouts[TABS.index('Settings')])
+        from addons_page import AddonsPage
+        self.addons_page=AddonsPage(self)
+        self.page_layouts[TABS.index('Addons')].addWidget(self.addons_page)
         self.footer=label(''); self.pause_button=self.button('Pause reminders',self.toggle_pause)
         footer_row=QHBoxLayout(); footer_row.addWidget(self.footer,1); footer_row.addWidget(self.pause_button); layout.addLayout(footer_row)
         self.profiles_changed(); self.rebuild_navigation()

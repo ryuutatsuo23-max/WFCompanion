@@ -6,7 +6,7 @@ from app import Preview, Panel, row, field, label, THEMES, FONT_CHOICES
 from display_settings import DEFAULT, validate_preferences
 from appearance_catalogue import companion_themes
 
-TABS=('Overview','Gathering','Crafting','Inventory & Bank','Gear wishlist','Profiles & Rules','Party & Trackers','Activity','Auction Journal','Auto-support','Settings')
+TABS=('Overview','Gathering','Crafting','Inventory & Bank','Gear wishlist','Profiles & Rules','Party & Trackers','Activity','Auction Journal','Auto-support','Addons','Settings')
 
 
 class SettingsMixin:

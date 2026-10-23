@@ -75,7 +75,11 @@ function ns.Read(fn, ...)
     if type(value) == "number" and value == value and math.abs(value) < math.huge then return value, "ok" end
     return nil, "invalid"
 end
-function ns.Field(record, key) return ns.Read(function() return record[key] end) end
+function ns.Field(record, key)
+    if type(record) ~= "table" then return nil, "error" end
+    if not ns.Access(record, true) then return nil, "restricted" end
+    return ns.Read(function() return record[key] end)
+end
 function ns.Integer(v, low, high)
     return type(v) == "number" and v >= low and v <= high and v == math.floor(v)
 end
@@ -98,13 +102,18 @@ local function invoke(module, key)
         callback()
     end
 end
+local notifying = false
 function ns.Notify()
+    -- Nested refresh requests are discarded, not queued for another pass.
+    if notifying then return end
+    notifying = true
     for name,module in pairs(ns.modules) do
         if not pcall(invoke,module,"Notify") then
             ns.notice="Module notification unavailable"
             diagnose("module",name,"Notify")
         end
     end
+    notifying = false
 end
 local frame = CreateFrame("Frame")
 function ns.On(event, callback)
@@ -180,8 +189,11 @@ end)
 ns.On("PLAYER_LEAVING_WORLD", function() ns.inWorld = false end)
 ns.On("PLAYER_LOGOUT", function() ns.inWorld = false end)
 frame:SetScript("OnEvent", function(_, event, ...)
-    for index, callback in ipairs(ns.events[event] or {}) do
-        local ok = pcall(callback, ...)
+    local callbacks = ns.events[event] or {}
+    -- On may append during a callback; only the initial list length participates.
+    local count = #callbacks
+    for index = 1, count do
+        local ok = pcall(callbacks[index], ...)
         if not ok then
             ns.notice = "Module error; observation unavailable"
             diagnose("event",event,"OnEvent",index)
