@@ -6,6 +6,7 @@ untouched. This validates file migration, not interactive wizard appearance.
 """
 from pathlib import Path
 import argparse
+import ast
 import hashlib
 import json
 import re
@@ -19,6 +20,12 @@ from install_addons import package_metadata
 def digest_tree(folder):
     return {p.relative_to(folder).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest()
             for p in folder.rglob('*') if p.is_file()}
+
+
+def bundle_version(folder):
+    module=ast.parse((folder/'_internal/payload/tools/qt_preview/release_updates.py').read_text(encoding='utf-8-sig'))
+    return next(ast.literal_eval(node.value) for node in module.body
+                if isinstance(node,ast.Assign) and any(isinstance(target,ast.Name) and target.id=='VERSION' for target in node.targets))
 
 
 def verify(base, bundle, compiler, branding):
@@ -57,7 +64,7 @@ def verify(base, bundle, compiler, branding):
         marker.write_text('Unrelated file retained')
         iss = work/'upgrade.iss'
         iss.write_text(script, encoding='utf-8')
-        subprocess.run([str(compiler), '/DPayload='+str(bundle), '/DVersion=0.1.24',
+        subprocess.run([str(compiler), '/DPayload='+str(bundle), '/DVersion='+bundle_version(bundle),
                         '/DOutput='+str(work/'output'), '/DBranding='+str(branding), str(iss)],
                        check=True, stdout=subprocess.DEVNULL)
         expected = digest_tree(bundle)
@@ -73,7 +80,7 @@ def verify(base, bundle, compiler, branding):
             package_metadata(app/'_internal/payload/addons', ['WFCore', 'WFStorage'])
             assert digest_tree(protected) == before
             assert marker.read_text() == 'Unrelated file retained'
-        return dict(upgrade_from='0.1.23', reproduced_old_manifest_failure=True,
+        return dict(upgrade_from=bundle_version(base), upgrade_to=bundle_version(bundle), reproduced_old_manifest_failure=True,
                     upgrade_and_repeat_passed=True, bundle_files_verified=len(expected),
                     pinned_packages_valid=True, synthetic_personal_files_preserved=True,
                     scope='Inno file migration with OS integration disabled')
