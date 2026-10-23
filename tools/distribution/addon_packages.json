@@ -18,8 +18,8 @@
     },
     "WFStorage": {
       "version": "0.7.0",
-      "source_commit": "9f68fac7e636803340ed858923359495a9cc0da4",
-      "archive_sha256": "c8c8aea83bbcd0e558397bbaaec87b4aa224a601af53c56ffe3779cdf31b5dd9",
+      "source_commit": "b523e37c99d592830cc807214a4c1580006d59b7",
+      "archive_sha256": "8b9f750e4aca98a984bd05e58cf7c4558b0abf30765c8860452d3c754c529e64",
       "files": {
         "WFStorage.toc": "3434758d9ffdac8ceeed09e07dd0969a1f30479232cba1c966ffb63347506de3",
         "Bootstrap.lua": "37d316020482a3bfb28b80325494a71c379082f3ebb5874e7a800ec863b91138",
@@ -36,14 +36,15 @@
         "QUICK_START.md": "0ca93e3d5fb92cdbc0fa8e8a874a93c6a688abe1c75fd2755d02c497458d49b1",
         "KNOWN_ISSUES.md": "a1b7181ee736f33a1b72e9e3bd6ed1796674f4d3aa1637915d013439f1af30d2",
         "FEEDBACK.md": "56011a55e65aab9dd630026f8ce87e81e91dbd1dadfa50c33e57b7a56f373c0e",
+        "ASSET_NOTICES.md": "a6b87f65dddaaa1e7fc1ad3586eaa88ea5e701ec19764db4d74e7c971b39a7f6",
         "branding/forever-storage-logo.png": "042874dcde14924b52344cd9c3dfef04a08a657c12f630291c3bfa2bf75fac2e",
         "branding/forever-storage-icon.tga": "66449b2c11a30d30e207b4d860488cf31e1244f9c45319245c07ea55702629c9"
       }
     },
     "WFProfessions": {
       "version": "0.1.4",
-      "source_commit": "3c3b6a41f6722371415c84e21594863ab3b6d565",
-      "archive_sha256": "62f2c17116217884a5648b4a31366abfce373fcbd9a148f3af3292a5b871cf97",
+      "source_commit": "76f9aa669ca05456693e7de24de4889dc1506a99",
+      "archive_sha256": "cc56676551012479fcb698730cf45c881d0944aaed7193fd54f530005096fa7f",
       "files": {
         "WFProfessions.toc": "a8f3aeeaa9295a6b9912486c3e0adeb187767a30fc95dcf1365fda1f7756c5d1",
         "Model.lua": "3873c376934b9c0621d91faa4cb1d129a2af54c34215fbeb4d6f8a24087c7e1b",
@@ -55,12 +56,12 @@
         "UI.lua": "ce294b3522f9bca1939202e0ba22349d0436522a413e877520e87f7ac09b52d2",
         "Launcher.lua": "5c3f80dab857bf65ece2ffefbe861aa38407af6d74fcc49ddb0f6f7512170de3",
         "Probe.lua": "b7361cc8e69b1525fe567bb1b379feb3a3a30c266fa538d9fb5c6138504f8f7f",
-        "README.md": "1b3500f0e52abdb1e868326302a2b3d6967c44606f7394f06fcf497f9e606458",
+        "README.md": "ddd85ce0c261f0316aae4225f3d59296cdc2dd1fd9021ecf5237d9c4fc4b416a",
         "LICENSE": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986",
-        "branding/README.md": "b00c397ad7736691487bb20a385251559f0f34c54d426f9c74eb58d49f5c87df",
+        "branding/README.md": "f4e48c18ce3cee24cbbe167aeab7d9b912295b2259a8b4f9279dade295474b49",
         "branding/forever-professions-logo.png": "ae290067bdb06cf0e36bcdd5ce361d3e61ab08eb49013c7e4bd8e659c74254b5",
         "branding/forever-professions-icon.tga": "910b2ca72917e6679fd5c1c6b2bc80c7f188919ed52cee0c9f293a6f3b4c68f5",
-        "PACKAGE_SHA256.json": "8c6529f34f2db33096b0a04bc0247e557c50797119325f0df1960ccdf51d16b5"
+        "PACKAGE_SHA256.json": "4ba94cbc3fc04985e9d4347f25383d41fe6883252bb38245680aad051c8ce169"
       }
     }
   },

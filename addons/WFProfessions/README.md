@@ -94,12 +94,12 @@ are separate from automatic collection, which remains disabled.
 - **Alongside:** the journal follows the native profession window, including the
   user's existing profession keybinding. Closing the native profession windows
   closes the journal; Escape also works while search has focus.
-- **Custom — PENDING LIVE:** designed to show the cached journal alone. The
+- **Custom â€” PENDING LIVE:** designed to show the cached journal alone. The
   inspected Beta native OnHide closes live profession context; hidden-window
   collection is not supported. Open profession temporarily exposes the native
   recipe page for a separate manual Refresh. If safe hiding is unavailable,
   native UI remains usable with a fallback notice.
-- **Native UI — PENDING LIVE:** designed to leave the game's windows visible and
+- **Native UI â€” PENDING LIVE:** designed to leave the game's windows visible and
   suppress automatic journal opening while Professions remains loaded. Explicit
   journal/settings commands remain available. This does not implement a companion
   importer or continuous capture.
@@ -160,3 +160,18 @@ Original code Copyright (C) 2026 Steve Vanhamel and WFCompanion contributors.
 GPL-3.0-only; see [LICENSE](LICENSE). No warranty. Client textures/fonts are
 referenced, not redistributed. No game recipe catalogue, artwork or fonts are
 bundled; the original approved Forever Professions branding is included.
+
+
+### Asset provenance and notices
+
+The original Professions PNG and its derived TGA are **CC BY 4.0**, by explicit
+owner choice for rights the owner controls. Code remains **GPL-3.0-only** under
+the included LICENSE. [Branding provenance, attribution and licence](branding/README.md)
+records the owner's personal-account/input confirmation, permission for their
+Storage reference, generation terms and export modifications. Retain those
+notices and the CC BY 4.0 link when redistributing artwork; mark further changes.
+
+No client artwork, font or sound bytes are bundled. Client resource paths are
+in-game references. This independent project is not endorsed by Blizzard or
+OpenAI. Installed addons, saves and companion bundles are outside this candidate;
+no installation or publishing is authorized by these notices.
