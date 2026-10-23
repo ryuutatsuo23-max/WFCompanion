@@ -22,18 +22,14 @@ class ConnectionTests(unittest.TestCase):
             self.assertEqual((folder/'WFCore.lua').read_bytes(),raw)
             self.assertFalse((Path(tmp)/'addon_inventory.json').exists())
 
-    def test_discovery_needs_no_saved_preference_but_rejects_multiple_accounts(self):
+    def test_unconfigured_source_requires_explicit_connection(self):
         with tempfile.TemporaryDirectory() as tmp:
             service=SavedCharacterConnection(SimpleNamespace(data=Data(Path(tmp))))
-            first=Path(tmp)/'_classic_beta_/WTF/Account/Example/SavedVariables/WFCore.lua'
-            second=first.parent.parent.parent/'Other/SavedVariables/WFCore.lua'
-            with patch('saved_character_connection.discover',return_value=[first]):
-                self.assertEqual(service.source(),str(first.parent))
-            with patch('saved_character_connection.discover',return_value=[first,second]):
-                with self.assertRaisesRegex(ValueError,'Several'):service.source()
+            self.assertIsNone(service.source())
+            service.store.save(dict(version=1,directory=tmp,automatic=True))
+            self.assertEqual(service.source(),tmp)
             service.forget()
-            with patch('saved_character_connection.discover') as discover:
-                self.assertIsNone(service.source());discover.assert_not_called()
+            self.assertIsNone(service.source())
 
     def test_core_only_new_alt_without_professions_and_no_duplicate_on_repeat(self):
         with tempfile.TemporaryDirectory() as tmp:

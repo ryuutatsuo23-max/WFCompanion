@@ -3,7 +3,6 @@ from pathlib import Path
 from character_links import LinkStore, identity, create_profile, check_profiles
 from local_journal import LocalStore
 from profession_observations import ObservationCache
-from game_data_review import discover
 from core_observations import CoreData, decode
 
 
@@ -47,7 +46,8 @@ class SavedCharacterConnection:
         self.accepted_signature=None
         self.pending_signature=None
 
-    def connect(self, directory, remember=True):
+    def preview(self, directory):
+        """Validate a whole batch without creating profiles, links or preferences."""
         if self.store.error:
             raise ValueError(self.store.error)
         current = self.store.path.read_bytes() if self.store.path.exists() else None
@@ -77,6 +77,14 @@ class SavedCharacterConnection:
             destination = links.linked(value)
             if destination is not None and destination not in {p.id for p in data.saved_profiles}:
                 raise ValueError('A linked profile is missing; review its link first.')
+        return before, identities, cache
+
+    def connect(self, directory, remember=True, expected_signature=None):
+        directory=Path(directory).resolve()
+        before, identities, cache = self.preview(directory)
+        if expected_signature is not None and before != expected_signature:
+            raise ValueError('Saved files changed since the preview. Preview them again before connecting.')
+        data=self.host.data
         for value in identities:
             links = LinkStore(data.directory)
             destination = links.linked(value)
@@ -112,9 +120,9 @@ class SavedCharacterConnection:
         if self.store.error:raise ValueError(self.store.error)
         if not self.store.data.get('automatic',True):return None
         if self.store.data['directory']:return self.store.data['directory']
-        folders=sorted({str(p.parent) for p in discover() if '_classic_beta_' in p.parts})
-        if len(folders)>1:raise ValueError('Several Beta account folders found. Choose the account in Read professions save.')
-        return folders[0] if folders else None
+        # New accounts must be previewed and explicitly connected in Settings.
+        # Remembered connections keep their existing startup/refresh behavior.
+        return None
 
     def poll(self):
         if getattr(self.host,'testing',False):return
