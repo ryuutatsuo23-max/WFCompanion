@@ -129,16 +129,38 @@ class Updates(Panel):
         if result:
             self.progress.setValue(100)
             if self.auto_install:self.install()
+    def confirm_restart(self):
+        box=QMessageBox(self.host)
+        box.setWindowTitle('Update and restart')
+        box.setIcon(QMessageBox.Icon.Question)
+        box.setText('Update now? The companion will close, update, and reopen automatically.\n\n'
+                    'This option saves Settings only. Finish and save any character or item editor fields first; unfinished fields will not survive restart.')
+        checkbox=QCheckBox('Save settings before updating',box);checkbox.setChecked(True)
+        # Reserve the unchecked indicator's border even when first laid out checked.
+        checkbox.ensurePolished()
+        checkbox.setMinimumSize(checkbox.sizeHint().width()+8,max(28,checkbox.sizeHint().height()+8))
+        box.setCheckBox(checkbox)
+        box.setStandardButtons(QMessageBox.StandardButton.Yes|QMessageBox.StandardButton.Cancel)
+        box.setDefaultButton(QMessageBox.StandardButton.Cancel)
+        answer=box.exec();save=checkbox.isChecked();box.deleteLater()
+        return answer==QMessageBox.StandardButton.Yes,save
+
     def install(self):
         if self.busy or not self.installer or not self.installer.is_file():return
         if hashlib.sha256(self.installer.read_bytes()).hexdigest()!=self.installer_hash:
             self.installer=None;self.buttons();self.notice.setText('Downloaded installer changed; download it again.');return
+        if self.host.data.dirty:
+            self.notice.setText('Save or discard applied records before updating. The save-settings option does not save character or item records.');return
+        confirmed,save_settings=self.confirm_restart()
+        if not confirmed:return
+        settings_changed=self.host.settings!=self.host.saved or self.host.qt_settings!=self.host.saved_qt
+        if settings_changed:
+            if not save_settings:
+                self.notice.setText('Save or discard unsaved settings before updating, or enable Save settings before updating.');return
+            if not self.host.save_session():
+                self.notice.setText('Update paused: settings could not be saved. '+self.host.session_status.text());return
         if self.host.data.dirty or self.host.settings!=self.host.saved or self.host.qt_settings!=self.host.saved_qt:
-            self.notice.setText('Save or discard unsaved settings and applied records before updating.');return
-        answer=QMessageBox.question(self.host,'Update and restart',
-            'Save any unfinished editor fields first; they will not survive restart. Update now? Your saved settings and records are kept. The companion will close, update with a progress window, and reopen automatically.',
-            QMessageBox.StandardButton.Yes|QMessageBox.StandardButton.Cancel,QMessageBox.StandardButton.Cancel)
-        if answer!=QMessageBox.StandardButton.Yes:return
+            self.notice.setText('Update paused: some changes still need saving.');return
         from update_restart import start_update
         try:
             helper=start_update(self.installer,self.installer_hash,self.host.data.directory/'updates')

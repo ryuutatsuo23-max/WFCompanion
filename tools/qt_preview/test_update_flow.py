@@ -35,14 +35,14 @@ class UpdateFlowTests(unittest.TestCase):
                 panel.show_progress(50,100);self.assertEqual(panel.progress.value(),50)
                 installer=Path(tmp)/'update.exe';installer.write_bytes(b'fixture')
                 panel.downloaded(installer,'')
-                with patch.object(update_restart,'start_update') as start, patch.object(QMessageBox,'question',return_value=QMessageBox.StandardButton.Cancel):
+                with patch.object(update_restart,'start_update') as start, patch.object(panel,'confirm_restart',return_value=(False,True)):
                     panel.install();start.assert_not_called()
                 host.settings['text_size']+=1
-                with patch.object(update_restart,'start_update') as start:
+                with patch.object(update_restart,'start_update') as start, patch.object(panel,'confirm_restart',return_value=(True,False)):
                     panel.install();start.assert_not_called();self.assertIn('Save or discard',panel.notice.text())
                 host.settings['text_size']-=1
                 helper=Mock()
-                with patch.object(update_restart,'start_update',return_value=helper) as start, patch.object(host,'close',return_value=False), patch.object(QMessageBox,'question',return_value=QMessageBox.StandardButton.Yes):
+                with patch.object(update_restart,'start_update',return_value=helper) as start, patch.object(host,'close',return_value=False), patch.object(panel,'confirm_restart',return_value=(True,True)):
                     panel.install();start.assert_called_once();helper.terminate.assert_called_once()
                 installer.write_bytes(b'tampered')
                 with patch.object(update_restart,'start_update') as start:
@@ -64,6 +64,7 @@ class UpdateFlowTests(unittest.TestCase):
                     self.assertEqual(check.call_count,2)
                 panel.checked(releases.candidate(release()),'');self.app.processEvents()
                 toast=panel.prompt
+                self.assertEqual(toast.windowTitle(),'WF Companion update available')
                 self.assertFalse(toast.isModal())
                 area=host.contentsRect()
                 self.assertFalse(toast.isWindow())
@@ -79,6 +80,44 @@ class UpdateFlowTests(unittest.TestCase):
                 with patch.object(panel,'download') as download:
                     toast.update_button.click();download.assert_called_once_with(True)
                 self.assertFalse(toast.isVisible())
+            finally:host.close();self.app.processEvents()
+
+    def test_restart_saves_settings_only_and_stops_on_save_failure(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            host=Companion(Path(tmp));host.testing=True;host.updates_panel.timer.stop()
+            panel=host.updates_panel
+            installer=Path(tmp)/'update.exe';installer.write_bytes(b'fixture');panel.downloaded(installer,'')
+            try:
+                host.settings['text_size']+=1
+                host.inventory_page.form.load({'name':'Unfinished item','quantity':'???'})
+                draft=host.inventory_page.form.values()
+                with patch.object(panel,'confirm_restart',return_value=(False,True)),patch.object(host,'save_session') as save,patch.object(update_restart,'start_update') as start:
+                    panel.install();save.assert_not_called();start.assert_not_called()
+                with patch.object(panel,'confirm_restart',return_value=(True,True)),patch.object(host,'save_session',return_value=False),patch.object(update_restart,'start_update') as start:
+                    panel.install();start.assert_not_called();self.assertIn('could not be saved',panel.notice.text())
+                helper=Mock()
+                with patch.object(panel,'confirm_restart',return_value=(True,True)),patch.object(update_restart,'start_update',return_value=helper) as start,patch.object(host.close_behavior,'quit',return_value=False):
+                    panel.install();start.assert_called_once();helper.terminate.assert_called_once()
+                self.assertEqual(host.settings,host.saved)
+                self.assertEqual(host.data.display.data['text_size'],host.settings['text_size'])
+                self.assertEqual(host.inventory_page.form.values(),draft)
+                host.data.dirty.add('Inventory')
+                with patch.object(panel,'confirm_restart') as confirm,patch.object(update_restart,'start_update') as start:
+                    panel.install();confirm.assert_not_called();start.assert_not_called()
+                host.data.dirty.clear()
+            finally:host.close();self.app.processEvents()
+
+    def test_restart_checkbox_defaults_to_save_and_cancel_stays_default(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            host=Companion(Path(tmp));host.testing=True;host.updates_panel.timer.stop()
+            try:
+                def inspect(box):
+                    self.assertTrue(box.checkBox().isChecked())
+                    self.assertEqual(box.standardButton(box.defaultButton()),QMessageBox.StandardButton.Cancel)
+                    self.assertIn('Settings only',box.text())
+                    return QMessageBox.StandardButton.Cancel
+                with patch.object(QMessageBox,'exec',inspect):
+                    self.assertEqual(host.updates_panel.confirm_restart(),(False,True))
             finally:host.close();self.app.processEvents()
 
     def test_windows_dialog_background_matches_theme(self):
