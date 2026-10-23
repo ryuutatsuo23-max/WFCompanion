@@ -20,7 +20,10 @@ authorization to install or change a companion bundle.
 
 Left-click the minimap icon to toggle the journal; right-click for settings.
 Drag to reposition it around the minimap. Releasing a drag does not activate a
-click. Position and visibility persist across reloads. Per-frame launcher updates
+click. Position and visibility persist across reloads. Fresh settings use angle 135
+(Storage defaults to 225). Existing saved positions, including 225, are preserved;
+there is no automatic relocation. The new default has offline checks only; live
+positioning remains pending. Per-frame launcher updates
 run only while dragging. The approved logo also appears in the AddOn List; see
 [artwork information](branding/README.md).
 
@@ -149,7 +152,7 @@ Development previews, detailed historical handoffs, build scripts and evidence
 notes are repository-only and intentionally excluded from this install archive.
 The source checkout provides the builder at `tools/professions_preview/package.py`
 and synthetic tests at `tools/professions_preview`. No personal saves are loaded
-by that test suite. The last runtime suite passed 131 offline checks; synthetic
+by that test suite. The last runtime suite passed 133 offline checks; synthetic
 checks do not establish outstanding live behavior. Integration requires a fresh
 package handoff and explicit scope approval; publishing requires user approval.
 

@@ -13,7 +13,8 @@ local function position()
     if not launcher or not ns.store then return end
     local map=launcher:GetParent()
     local angle=ns.store.settings.minimapAngle
-    if not finite(angle) then angle=225 end
+    -- Separate fresh launchers from Storage (225); never migrate a saved angle.
+    if not finite(angle) then angle=135 end
     local radius=math.min(map:GetWidth(),map:GetHeight())/2+8
     launcher:ClearAllPoints()
     launcher:SetPoint("CENTER",map,"CENTER",math.cos(math.rad(angle))*radius,math.sin(math.rad(angle))*radius)
