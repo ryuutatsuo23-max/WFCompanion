@@ -235,7 +235,7 @@ class Companion(SettingsMixin, Preview):
         self.sync_preset()
         self.sync_wishlist_return()
         self.alt_inventory.invalidate()
-        self.saved_inventory.refresh()
+        self.saved_inventory.refresh_if_changed()
         for name in ('profile_page','tracker_page'):
             if hasattr(self,name): getattr(self,name).refresh()
 
@@ -280,7 +280,7 @@ class Companion(SettingsMixin, Preview):
         self.inventory_scope.blockSignals(True);self.inventory_scope.setCurrentIndex(index);self.inventory_scope.blockSignals(False)
         self.saved_inventory.setVisible(index==0)
         self.inventory_page.setVisible(index==1);self.alt_inventory.setVisible(index==2)
-        if index==0:self.saved_inventory.refresh()
+        if index==0:self.saved_inventory.refresh_if_changed()
 
     def show_observed_inventory(self):
         self.set_inventory_view(0);self.show_page('Inventory & Bank')
@@ -355,7 +355,7 @@ class Companion(SettingsMixin, Preview):
 
     def show_page(self,name):
         if name in self.scrollers:
-            if name=='Inventory & Bank' and hasattr(self,'saved_inventory'):self.saved_inventory.refresh()
+            if name=='Inventory & Bank' and hasattr(self,'saved_inventory'):self.saved_inventory.refresh_if_changed()
             if name=='Overview' and hasattr(self,'character_overview'):self.character_overview.refresh()
             # Cross-links may open a hidden page for this visit without changing
             # the saved visible-tab choices or destroying any drafts.

@@ -66,7 +66,7 @@ class ObservedInventoryDialog(QDialog):
         return profiles,tuple(values)
 
     def showEvent(self,event):
-        super().showEvent(event);self.refresh();self.watch_timer.start()
+        super().showEvent(event);self.refresh_if_changed();self.watch_timer.start()
 
     def hideEvent(self,event):
         self.watch_timer.stop();super().hideEvent(event)
@@ -80,12 +80,23 @@ class ObservedInventoryDialog(QDialog):
         if signature!=self._pending_signature:self._pending_signature=signature;return
         self.refresh(follow_new=True)
 
-    def refresh(self,*,follow_new=False):
+    def sync_character_list(self):
         if self.embedded:
             self.character.blockSignals(True);self.character.clear()
             for p in self.host.data.saved_profiles:self.character.addItem(p.name,p.id)
             self.character.setCurrentIndex(self.character.findData(self.host.data.active));self.character.blockSignals(False)
-        self.ledger={};self.errors={}
+
+    def refresh_if_changed(self):
+        self.sync_character_list()
+        try:signature=self.source_signature()
+        except (OSError,ValueError):self.refresh();return
+        if signature==getattr(self,'_attempt_signature',None):
+            self.select(self.scope);return
+        self.refresh()
+
+    def refresh(self,*,follow_new=False):
+        self.sync_character_list()
+        self._attempt_signature=None;self.ledger={};self.errors={}
         try:signature=self.source_signature()
         except (OSError,ValueError) as exc:
             self.items.rows([]);self.notice.setText('Could not read addon observations: '+str(exc));self.details.setText('');self.search_notice.setText('');return
@@ -119,6 +130,8 @@ class ObservedInventoryDialog(QDialog):
                         self.host.switch_character(target)
                         return
         self.select(self.scope)
+        # Navigation reuses this attempt; the watcher still retries failed reads.
+        self._attempt_signature=signature
         if not self.errors:self._loaded_signature=signature;self._pending_signature=None
 
     def sort_items(self,column):

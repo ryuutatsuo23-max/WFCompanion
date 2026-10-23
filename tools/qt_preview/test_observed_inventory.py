@@ -14,6 +14,29 @@ from test_core_inventory_v2 import lua
 
 
 class ObservedTests(unittest.TestCase):
+    def test_navigation_reuses_reads_but_retries_failures_and_reloads_links(self):
+        from unittest.mock import patch
+        app=QApplication.instance() or QApplication([]);w=Companion(self.root);w.testing=True
+        w.updates_panel.timer.stop();w.show();w.show_page('Inventory & Bank');app.processEvents()
+        view=w.saved_inventory
+        try:
+            with patch.object(view,'refresh',wraps=view.refresh) as refresh:
+                w.show_page('Overview');w.show_page('Inventory & Bank');app.processEvents()
+                view.refresh_if_changed();refresh.assert_not_called()
+                links=self.root/'character_links.json'
+                links.write_bytes(links.read_bytes()+b'\n')
+                view.refresh_if_changed();refresh.assert_called_once()
+                self.source.write_bytes(self.source.read_bytes()+b'\n')
+                with patch('observed_inventory_dialog.linked_snapshots',side_effect=ValueError('save in progress')):
+                    view.refresh_if_changed()
+                    count=refresh.call_count
+                    view.refresh_if_changed();self.assertEqual(refresh.call_count,count)
+                self.assertTrue(view.errors)
+                view.poll_saved_files();view.poll_saved_files()
+                self.assertFalse(view.errors)
+                self.assertGreater(refresh.call_count,count)
+        finally:
+            w.close();w.deleteLater();QThreadPool.globalInstance().waitForDone();app.processEvents()
     def test_follows_new_alt_save_only_after_baseline_and_skips_ties(self):
         from unittest.mock import patch
         from saved_inventory_view import linked_snapshots
