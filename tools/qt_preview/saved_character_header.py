@@ -7,7 +7,7 @@ from pathlib import Path
 from datetime import datetime
 import re
 from character_links import LinkStore,key
-from core_observations import CoreData,decode
+from core_observations import CoreData
 
 CLASSES={1:('WARRIOR','Warrior'),2:('PALADIN','Paladin'),3:('HUNTER','Hunter'),
          4:('ROGUE','Rogue'),5:('PRIEST','Priest'),6:('DEATHKNIGHT','Death Knight'),
@@ -37,11 +37,24 @@ def decode_details(details):
 
 
 def decode_character(raw,linked):
-    decode(raw)  # Existing strict envelope/client/owner validation; never Lua execution.
+    # Header details are independent of inventory snapshot validity.
+    if not raw or len(raw)>64*1024*1024:raise ValueError('Core save is empty or exceeds 64 MiB.')
     db=CoreData(raw.decode('utf-8-sig'),max_nodes=4_000_000).decode()
-    character=db['characters'].get(linked['guid'])
-    if character is None:raise ValueError('Linked GUID is absent from the Core save.')
-    ident=character['identity'];client=character['client']
+    if not isinstance(db,dict) or type(db.get('schema')) is not int or db['schema']!=1 or db.get('producer')!='WFCore':
+        raise ValueError('Unsupported core schema or producer.')
+    characters=db.get('characters')
+    if not isinstance(characters,dict) or len(characters)>50:raise ValueError('Invalid character collection.')
+    guid=linked.get('guid')
+    if not isinstance(guid,str) or len(guid)>160 or not re.fullmatch(r'Player-\d+-[0-9A-Fa-f]+',guid):
+        raise ValueError('Invalid linked GUID.')
+    character=characters.get(guid)
+    if not isinstance(character,dict):raise ValueError('Linked GUID is absent or invalid in the Core save.')
+    ident=character.get('identity');client=character.get('client')
+    if not isinstance(ident,dict) or ident.get('guid')!=guid:raise ValueError('Mismatched character identity.')
+    if not isinstance(client,dict) or client.get('version')!='1.60.1' or type(client.get('interface')) is not int or client['interface']!=16001:
+        raise ValueError('Unsupported observation client.')
+    for field in ('firstName','lastName','realm'):
+        if field in ident and (not isinstance(ident[field],str) or len(ident[field])>160):raise ValueError('Invalid identity label.')
     name=' '.join(ident.get(k,'') for k in ('firstName','lastName')).strip() or linked['guid']
     if (ident.get('realm'),name,client.get('version'),client.get('interface'))!=(linked['realm'],linked['name'],linked['version'],linked['interface']):
         raise ValueError('Core identity differs from the saved character link.')

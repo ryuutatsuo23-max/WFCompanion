@@ -20,6 +20,29 @@ class HeaderTests(TestCase):
     def test_core_details_without_datastore(self):
         self.assertEqual(decode_character(saved(),LINK),('Priest',10,1792711839))
 
+    def test_inventory_damage_does_not_hide_header_details(self):
+        from core_observations import CoreData,decode
+        db=CoreData(saved().decode()).decode()
+        db['inventorySchema']=99
+        db['characters'][LINK['guid']]['locations']={'bags':{'latest':{'schema':99}}}
+        db['characters']['Player-1-DEF']={'locations':'damaged'}
+        raw=('WFCoreDB='+lua(db)).encode()
+        with self.assertRaises(ValueError):decode(raw)
+        self.assertEqual(decode_character(raw,LINK),('Priest',10,DETAILS['observedAt']))
+
+    def test_header_envelope_and_linked_identity_stay_strict(self):
+        from core_observations import CoreData
+        baseline=CoreData(saved().decode()).decode()
+        changes=[lambda db:db.update(schema=True),lambda db:db.update(producer='Other'),
+                 lambda db:db.update(characters=False),lambda db:db['characters'].update({LINK['guid']:False}),
+                 lambda db:db['characters'][LINK['guid']]['identity'].update(guid='Player-1-DEF'),
+                 lambda db:db['characters'][LINK['guid']]['identity'].update(firstName=12),
+                 lambda db:db['characters'][LINK['guid']].update(client=False),
+                 lambda db:db['characters'][LINK['guid']]['client'].update(version='future')]
+        for change in changes:
+            db=deepcopy(baseline);change(db)
+            with self.assertRaises(ValueError):decode_character(('WFCoreDB='+lua(db)).encode(),LINK)
+
     def test_missing_future_and_malformed_status_are_unknown(self):
         for details in (None,{},dict(DETAILS,schema=2),dict(DETAILS,schema=True),dict(DETAILS,status={}),dict(DETAILS,status=dict.fromkeys(FIELDS,'yes'))):
             self.assertEqual(decode_character(saved(details),LINK),UNKNOWN)
