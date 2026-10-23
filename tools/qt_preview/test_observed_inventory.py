@@ -162,5 +162,34 @@ class ObservedTests(unittest.TestCase):
         finally:
             w.close();w.deleteLater();QThreadPool.globalInstance().waitForDone();app.processEvents()
 
+    def test_visible_saved_view_reloads_stable_changes_and_preserves_bank_selection(self):
+        from unittest.mock import patch
+        app=QApplication.instance() or QApplication([]);w=Companion(self.root);w.testing=True
+        w.updates_panel.timer.stop();w.show();w.show_page('Inventory & Bank');app.processEvents()
+        view=w.saved_inventory;view.locations.selectRow(1)
+        before=deepcopy(w.data.inventories)
+        try:
+            self.assertTrue(view.watch_timer.isActive())
+            with patch.object(view,'refresh',wraps=view.refresh) as refresh:
+                view.poll_saved_files();refresh.assert_not_called()
+                self.source.write_bytes(self.source.read_bytes()+b'\n')
+                view.poll_saved_files();refresh.assert_not_called()
+                view.poll_saved_files();refresh.assert_called_once()
+                self.assertEqual(view.locations.key(),'bank')
+                view.poll_saved_files();self.assertEqual(refresh.call_count,1)
+                # A temporary unreadable/partial save must recover on retry.
+                self.source.write_bytes(self.source.read_bytes()+b'\n')
+                view.poll_saved_files()
+                with patch('observed_inventory_dialog.linked_snapshots',side_effect=ValueError('save in progress')):
+                    view.poll_saved_files()
+                self.assertIn('Could not read',view.notice.text())
+                view.poll_saved_files()
+                self.assertNotIn('Could not read',view.notice.text())
+            self.assertEqual(w.data.inventories,before)
+            w.show_page('Overview');app.processEvents()
+            self.assertFalse(view.watch_timer.isActive())
+        finally:
+            w.close();w.deleteLater();QThreadPool.globalInstance().waitForDone();app.processEvents()
+
 
 if __name__=='__main__':unittest.main()
