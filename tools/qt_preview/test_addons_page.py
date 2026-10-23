@@ -49,3 +49,22 @@ class AddonsPageTests(unittest.TestCase):
                 page=AddonsPage(host,clients=clients)
                 self.assertIsNone(page.client);self.assertIn('Multiple clients',page.notice.text())
             finally:host.close();self.app.processEvents()
+
+    def test_core_installs_independently_and_storage_keeps_dependency(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);client=root/'_classic_beta_';client.mkdir();(client/'WowB.exe').touch()
+            payload=root/'package'
+            for name in ('WFCore','WFStorage'):
+                folder=payload/name;folder.mkdir(parents=True);(folder/(name+'.toc')).write_text('fixture '+name)
+            host=Companion(root/'state');host.testing=True;host.updates_panel.timer.stop()
+            try:
+                page=AddonsPage(host,payload=payload,clients=[client])
+                page.core_action.click()
+                self.assertTrue((client/'Interface/AddOns/WFCore/WFCore.toc').is_file())
+                self.assertFalse((client/'Interface/AddOns/WFStorage').exists())
+                self.assertFalse(page.core_action.isEnabled());self.assertTrue(page.action.isEnabled())
+                with patch.object(QMessageBox,'question',return_value=QMessageBox.StandardButton.Yes):page.action.click()
+                self.assertTrue((client/'Interface/AddOns/WFStorage/WFStorage.toc').is_file())
+                self.assertFalse(page.action.isEnabled())
+                self.assertFalse(page.core_action.isEnabled())
+            finally:host.close();self.app.processEvents()

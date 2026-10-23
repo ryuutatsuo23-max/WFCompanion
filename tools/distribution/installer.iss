@@ -61,6 +61,11 @@ Name: "{app}\Uninstall WF Companion"; Filename: "{uninstallexe}"; IconFilename: 
 Name: "{userprograms}\WFCompanion\WF Companion"; Filename: "{app}\WFCompanion.exe"; WorkingDir: "{app}"; IconFilename: "{app}\_internal\payload\branding\forever.ico"; Comment: "WoW Forever companion - characters, inventory and wishlists"; AppUserModelID: "WFCompanion.Desktop"
 Name: "{userdesktop}\WF Companion"; Filename: "{app}\WFCompanion.exe"; WorkingDir: "{app}"; IconFilename: "{app}\_internal\payload\branding\forever.ico"; Comment: "Open the WoW Forever companion"; AppUserModelID: "WFCompanion.Desktop"; Tasks: desktopicon
 [InstallDelete]
+#ifndef PatchName
+; Obsolete companion-bundled documentation from before the pinned Storage package.
+; Never target the player's game AddOns or WTF folders.
+Type: files; Name: "{app}\_internal\payload\addons\WFStorage\README.md"
+#endif
 Type: files; Name: "{userprograms}\WFCompanion\WFCompanion.lnk"
 Type: files; Name: "{userprograms}\WFCompanion\Uninstall WFCompanion.lnk"
 Type: files; Name: "{app}\Uninstall WFCompanion.lnk"

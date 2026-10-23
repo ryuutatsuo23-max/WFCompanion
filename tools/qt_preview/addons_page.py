@@ -21,9 +21,13 @@ class AddonsPage(Panel):
         self.folder.setTextFormat(Qt.TextFormat.PlainText);self.box.addWidget(self.folder)
         self.box.addWidget(row(host.button('Choose game folder',self.choose),host.button('Refresh',self.refresh)))
         self.status=label('');self.status.setWordWrap(True);self.status.setTextFormat(Qt.TextFormat.PlainText)
-        self.box.addWidget(self.status)
+        self.box.addWidget(label('Forever Core'))
+        self.box.addWidget(label('Shared character records and save guidance. Required by Bags & Bank.'))
+        self.core_status=label('');self.core_status.setWordWrap(True);self.box.addWidget(self.core_status)
+        self.core_action=host.button('Install Core',lambda:self.install_selected('WFCore'));self.box.addWidget(self.core_action)
         self.box.addWidget(label('Bags & Bank · includes required Forever Core'))
         self.box.addWidget(label('View and organize bags and bank in game.'))
+        self.box.addWidget(self.status)
         self.action=host.button('Install Bags & Bank',self.install_selected);self.box.addWidget(self.action)
         note=label('Existing addon files are backed up. Game saves and other addons are kept.\n'
                    'WoW can stay open during copying. Reload updated addons with /reload; newly added addons may require a full game restart.')
@@ -55,21 +59,25 @@ class AddonsPage(Panel):
                 self.notice.setText('Game folder remembered.');self.refresh()
             except (OSError,ValueError) as exc:self.notice.setText(str(exc))
 
-    def package_files(self):
+    def package_files(self,names=('WFCore','WFStorage')):
         if self.payload is None:raise ValueError('Release package pending. Development addon sources are not offered for installation.')
         files=[]
-        for name in ('WFCore','WFStorage'):
+        for name in names:
             for source in package_files(self.payload,name):
                 files.append((name,source))
         return files
 
     def refresh(self):
-        self.action.setEnabled(False);self.different=False
+        self.action.setEnabled(False);self.core_action.setEnabled(False);self.different=False
         self.folder.setText(str(self.client) if self.client else 'Choose your WoW Forever client folder.')
+        self.refresh_entry(('WFCore',),self.core_status,self.core_action,'Core')
+        self.different=self.refresh_entry(('WFCore','WFStorage'),self.status,self.action,'Bags & Bank')
+
+    def refresh_entry(self,names,status,action,title):
         try:
-            files=self.package_files()
-            metadata=package_metadata(self.payload,['WFCore','WFStorage'])
-            if self.client is None:self.status.setText('Select a game folder to check installed addons.');return
+            files=self.package_files(names)
+            metadata=package_metadata(self.payload,names)
+            if self.client is None:status.setText('Select a game folder to check installed addons.');return False
             validate_client(self.client)
             check_legacy(self.client)
             present=0;matched=0
@@ -78,26 +86,31 @@ class AddonsPage(Panel):
                 if target.exists():
                     present+=1
                     if target.read_bytes()==source.read_bytes():matched+=1
-            self.different=present>0 and matched!=len(files)
-            self.status.setText('Installed · matches bundled package' if matched==len(files) else
+            different=present>0 and matched!=len(files)
+            status.setText('Installed · matches bundled package' if matched==len(files) else
                                 'Installed files differ from bundled package' if present else 'Not installed')
-            self.action.setText('Install bundled version' if self.different else 'Installed' if matched==len(files) else 'Install Bags & Bank')
-            self.action.setEnabled(matched!=len(files))
+            action.setText('Install bundled '+title if different else 'Installed' if matched==len(files) else 'Install '+title)
+            action.setEnabled(matched!=len(files))
             identities='\n'.join(f'{name}: {info["version"]} ({info["source_commit"][:7]})' for name,info in metadata.items())
             self.details.setText(identities+f'\nPackage: {self.payload}\nBackups and installation receipts: {self.host.data.directory / "AddonBackups"}\n'
                                  'Status compares file contents, not version labels. Different files may be newer or locally modified. Extra existing files are retained.')
-        except (OSError,ValueError) as exc:self.status.setText(str(exc))
+            return different
+        except (OSError,ValueError) as exc:status.setText(str(exc));return False
 
-    def install_selected(self):
+    def install_selected(self,addon='WFStorage'):
+        if addon not in ('WFCore','WFStorage'):return
         self.refresh()
-        if not self.action.isEnabled():return
-        if self.different and QMessageBox.question(self.host,'Replace addon files?',
+        action=self.core_action if addon=='WFCore' else self.action
+        different=self.core_status.text()=='Installed files differ from bundled package' if addon=='WFCore' else self.different
+        if not action.isEnabled():return
+        if different and QMessageBox.question(self.host,'Replace addon files?',
                 'Installed files differ and may be newer or locally modified. Back them up and replace matching files with the bundled version?',
                 QMessageBox.StandardButton.Yes|QMessageBox.StandardButton.Cancel,QMessageBox.StandardButton.Cancel)!=QMessageBox.StandardButton.Yes:return
-        self.action.setEnabled(False)
+        action.setEnabled(False)
         try:
-            install(self.payload,self.client,['WFStorage'],self.host.data.directory/'AddonBackups')
+            install(self.payload,self.client,[addon],self.host.data.directory/'AddonBackups')
             write_json(self.path,dict(client=str(self.client)))
-            self.notice.setText('Installed Bags & Bank and Core. Existing code was backed up; your game saves are unchanged. See the reload/restart note above.')
+            title='Core' if addon=='WFCore' else 'Bags & Bank and Core'
+            self.notice.setText('Installed '+title+'. Existing code was backed up; your game saves are unchanged. See the reload/restart note above.')
         except (OSError,ValueError) as exc:self.notice.setText('Installation did not finish: '+str(exc))
         self.refresh()
