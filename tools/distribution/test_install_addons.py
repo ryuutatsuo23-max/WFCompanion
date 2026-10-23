@@ -10,7 +10,7 @@ from install_addons import install
 class AddonTests(unittest.TestCase):
     def test_pins_receipts_tampering_and_legacy_guard(self):
         with tempfile.TemporaryDirectory() as tmp:
-            root=Path(tmp);client=root/'_classic_beta_';client.mkdir();(client/'WowB.exe').touch()
+            root=Path(tmp).resolve();client=root/'_classic_beta_';client.mkdir();(client/'WowB.exe').touch()
             payload=root/'addons';packages={}
             for name in ('WFCore','WFStorage'):
                 folder=payload/name;folder.mkdir(parents=True);toc=folder/(name+'.toc');toc.write_text('## Version: 0.7.0\n')
@@ -26,7 +26,7 @@ class AddonTests(unittest.TestCase):
 
     def test_nested_branding_licence_backup_and_toc_last(self):
         with tempfile.TemporaryDirectory() as tmp:
-            root=Path(tmp);client=root/'_classic_beta_';client.mkdir();(client/'WowB.exe').touch()
+            root=Path(tmp).resolve();client=root/'_classic_beta_';client.mkdir();(client/'WowB.exe').touch()
             payload=root/'payload'
             for name in ('WFCore','WFStorage'):
                 folder=payload/name;folder.mkdir(parents=True);(folder/(name+'.toc')).write_text('toc')
@@ -43,7 +43,7 @@ class AddonTests(unittest.TestCase):
     def test_exact_tga_asset_and_invalid_image_rejection(self):
         from install_addons import package_files
         with tempfile.TemporaryDirectory() as tmp:
-            root=Path(tmp);folder=root/'WFStorage';(folder/'branding').mkdir(parents=True)
+            root=Path(tmp).resolve();folder=root/'WFStorage';(folder/'branding').mkdir(parents=True)
             (folder/'WFStorage.toc').write_text('toc')
             icon=folder/'branding/forever-storage-icon.tga'
             raw=bytes((0,0,2,0,0,0,0,0,0,0,0,0,128,0,128,0,32,8))+bytes(128*128*4)
@@ -58,7 +58,7 @@ class AddonTests(unittest.TestCase):
     def test_professions_pin_dependency_assets_and_rollback(self):
         from install_addons import package_metadata
         with tempfile.TemporaryDirectory() as tmp:
-            root=Path(tmp);client=root/'_classic_beta_';client.mkdir();(client/'WowB.exe').touch()
+            root=Path(tmp).resolve();client=root/'_classic_beta_';client.mkdir();(client/'WowB.exe').touch()
             payload=root/'package/addons';packages={}
             for name in ('WFCore','WFProfessions'):
                 folder=payload/name;folder.mkdir(parents=True)
@@ -89,7 +89,7 @@ class AddonTests(unittest.TestCase):
 
     def test_write_failure_restores_existing_files(self):
         with tempfile.TemporaryDirectory() as tmp:
-            root=Path(tmp);client=root/'_classic_beta_';client.mkdir();(client/'WowB.exe').touch()
+            root=Path(tmp).resolve();client=root/'_classic_beta_';client.mkdir();(client/'WowB.exe').touch()
             payload=root/'payload'
             for name in ('WFCore','WFStorage'):
                 folder=payload/name;folder.mkdir(parents=True);(folder/(name+'.toc')).write_text('new')
@@ -107,7 +107,7 @@ class AddonTests(unittest.TestCase):
 
     def test_selection_dependency_backup_and_saved_data(self):
         with tempfile.TemporaryDirectory() as tmp:
-            root=Path(tmp);client=root/'_forever_';client.mkdir();(client/'Wow.exe').write_bytes(b'fixture')
+            root=Path(tmp).resolve();client=root/'_forever_';client.mkdir();(client/'Wow.exe').write_bytes(b'fixture')
             payload=root/'payload';payload.mkdir()
             for addon in ('WFCore','WFStorage','WFStressProbe'):
                 folder=payload/addon;folder.mkdir();(folder/(addon+'.toc')).write_text('new '+addon)
