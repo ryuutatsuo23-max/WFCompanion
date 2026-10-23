@@ -63,8 +63,22 @@ class AddonsPageTests(unittest.TestCase):
                 self.assertTrue((client/'Interface/AddOns/WFCore/WFCore.toc').is_file())
                 self.assertFalse((client/'Interface/AddOns/WFStorage').exists())
                 self.assertFalse(page.core_action.isEnabled());self.assertTrue(page.action.isEnabled())
-                with patch.object(QMessageBox,'question',return_value=QMessageBox.StandardButton.Yes):page.action.click()
+                self.assertEqual(page.status.text(),'Ready to install missing files')
+                self.assertEqual(page.action.text(),'Install Forever Storage')
+                with patch.object(QMessageBox,'question',return_value=QMessageBox.StandardButton.Cancel) as question:
+                    page.action.click()
+                    question.assert_not_called()
                 self.assertTrue((client/'Interface/AddOns/WFStorage/WFStorage.toc').is_file())
                 self.assertFalse(page.action.isEnabled())
                 self.assertFalse(page.core_action.isEnabled())
+                # A missing Storage file must not hide a real Core conflict.
+                (client/'Interface/AddOns/WFStorage/WFStorage.toc').unlink()
+                core=client/'Interface/AddOns/WFCore/WFCore.toc'
+                core.write_text('locally modified Core')
+                page.refresh()
+                with patch.object(QMessageBox,'question',return_value=QMessageBox.StandardButton.Cancel) as question:
+                    page.action.click()
+                    question.assert_called_once()
+                self.assertEqual(core.read_text(),'locally modified Core')
+                self.assertFalse((client/'Interface/AddOns/WFStorage/WFStorage.toc').exists())
             finally:host.close();self.app.processEvents()

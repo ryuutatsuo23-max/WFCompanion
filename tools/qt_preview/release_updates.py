@@ -11,7 +11,7 @@ import urllib.request
 from urllib.parse import urlsplit
 from urllib.error import HTTPError
 
-VERSION='0.1.24'
+VERSION='0.1.25'
 REPOSITORY='ryuutatsuo23-max/WFCompanion'
 ASSET='WFCompanion-Setup.exe'
 API=f'https://api.github.com/repos/{REPOSITORY}/releases/latest'

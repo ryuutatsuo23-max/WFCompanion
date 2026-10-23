@@ -87,9 +87,12 @@ class AddonsPage(Panel):
                 if target.exists():
                     present+=1
                     if target.read_bytes()==source.read_bytes():matched+=1
-            different=present>0 and matched!=len(files)
+            # Missing files need installation, not permission to replace an
+            # existing revision. Matching dependency files are not a conflict.
+            different=present!=matched
             status.setText('Installed · matches bundled package' if matched==len(files) else
-                                'Installed files differ from bundled package' if present else 'Not installed')
+                                'Installed files differ from bundled package' if different else
+                                'Ready to install missing files' if present else 'Not installed')
             action.setText('Install bundled '+title if different else 'Installed' if matched==len(files) else 'Install '+title)
             action.setEnabled(matched!=len(files))
             identities='\n'.join(f'{name}: {info["version"]} ({info["source_commit"][:7]})' for name,info in metadata.items())
