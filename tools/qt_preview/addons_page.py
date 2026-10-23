@@ -24,11 +24,12 @@ class AddonsPage(Panel):
         self.box.addWidget(label('Forever Core'))
         self.box.addWidget(label('Shared character records and save guidance. Required by Bags & Bank.'))
         self.core_status=label('');self.core_status.setWordWrap(True);self.box.addWidget(self.core_status)
-        self.core_action=host.button('Install Core',lambda:self.install_selected('WFCore'));self.box.addWidget(self.core_action)
-        self.box.addWidget(label('Bags & Bank · includes required Forever Core'))
+        self.core_action=host.button('Install Forever Core',lambda:self.install_selected('WFCore'));self.box.addWidget(self.core_action)
+        self.box.addWidget(label('Forever Storage'))
         self.box.addWidget(label('View and organize bags and bank in game.'))
         self.box.addWidget(self.status)
-        self.action=host.button('Install Bags & Bank',self.install_selected);self.box.addWidget(self.action)
+        self.box.addWidget(label('Includes required Forever Core.'))
+        self.action=host.button('Install Forever Storage',self.install_selected);self.box.addWidget(self.action)
         note=label('Existing addon files are backed up. Game saves and other addons are kept.\n'
                    'WoW can stay open during copying. Reload updated addons with /reload; newly added addons may require a full game restart.')
         note.setWordWrap(True);self.box.addWidget(note)
@@ -70,8 +71,8 @@ class AddonsPage(Panel):
     def refresh(self):
         self.action.setEnabled(False);self.core_action.setEnabled(False);self.different=False
         self.folder.setText(str(self.client) if self.client else 'Choose your WoW Forever client folder.')
-        self.refresh_entry(('WFCore',),self.core_status,self.core_action,'Core')
-        self.different=self.refresh_entry(('WFCore','WFStorage'),self.status,self.action,'Bags & Bank')
+        self.refresh_entry(('WFCore',),self.core_status,self.core_action,'Forever Core')
+        self.different=self.refresh_entry(('WFCore','WFStorage'),self.status,self.action,'Forever Storage')
 
     def refresh_entry(self,names,status,action,title):
         try:
@@ -110,7 +111,7 @@ class AddonsPage(Panel):
         try:
             install(self.payload,self.client,[addon],self.host.data.directory/'AddonBackups')
             write_json(self.path,dict(client=str(self.client)))
-            title='Core' if addon=='WFCore' else 'Bags & Bank and Core'
+            title='Forever Core' if addon=='WFCore' else 'Forever Storage and Forever Core'
             self.notice.setText('Installed '+title+'. Existing code was backed up; your game saves are unchanged. See the reload/restart note above.')
         except (OSError,ValueError) as exc:self.notice.setText('Installation did not finish: '+str(exc))
         self.refresh()
