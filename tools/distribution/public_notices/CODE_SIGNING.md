@@ -1,8 +1,6 @@
 # Code signing policy
 
-Current status: unsigned. A SignPath Foundation application was submitted on
-22 October 2026 and is awaiting review. Acceptance and signing are not yet in place. Do not interpret the application
-or this policy as SignPath sponsorship or a guarantee of SmartScreen clearance.
+Current status: unsigned. The SignPath Foundation application was declined in October 2026 because the project did not yet have sufficient public visibility. Signing is deferred and may be reconsidered as the project grows. There is no SignPath sponsorship or guarantee of SmartScreen clearance.
 
 Maintainer, reviewer and intended release approver:
 [Steve Vanhamel (ryuutatsuo23-max)](https://github.com/ryuutatsuo23-max).
