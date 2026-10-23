@@ -175,9 +175,47 @@ local function identify()
     ns.character, ns.owner = character, guid
     ns.notice = "Ready"
 end
+-- Optional schema-1 header observation, independent of inventory snapshots.
+-- Never use a retained character reference without rechecking the current GUID.
+local function observeDetails(levelEvent, newLevel)
+    local character, owner = ns.character, ns.owner
+    if not ns.db or not character or not owner or ns.db.characters[owner]~=character then return end
+    local guid=ns.Read(UnitGUID,"player")
+    if guid~=owner then return end
+    if character.details~=nil and (type(character.details)~="table" or character.details.schema~=1) then
+        return -- Preserve unknown future or malformed detail records without migration.
+    end
+    local row={schema=1,status={}}
+    local function field(key,value,valid)
+        if valid then row[key]=value; row.status[key]="ok"
+        else row.status[key]="unknown" end
+    end
+    -- Read all returns from one call, then guard each before inspecting it.
+    local ok,name,token,id=false
+    if type(UnitClass)=="function" then ok,name,token,id=pcall(UnitClass,"player") end
+    if ok then
+        name=ns.Read(function() return name end)
+        token=ns.Read(function() return token end)
+        id=ns.Read(function() return id end)
+    else name,token,id=nil,nil,nil end
+    field("className",name,type(name)=="string" and name:find("%S")~=nil)
+    field("classToken",token,type(token)=="string" and token:match("^[A-Z]+$")~=nil)
+    field("classID",id,ns.Integer(id,1,255))
+    local level
+    if levelEvent then
+        -- UnitLevel may still report the old level during PLAYER_LEVEL_UP.
+        level=ns.Read(function() return newLevel end)
+    else level=ns.Read(UnitLevel,"player") end
+    field("level",level,ns.Integer(level,1,1000))
+    local stamp=ns.Stamp()
+    field("observedAt",stamp,ns.Integer(stamp,1,9007199254740991))
+    -- A successful identity check permits an Unknown observation, never stale
+    -- values presented with a fresh timestamp. Other GUID records stay untouched.
+    character.details=row
+end
 ns.On("ADDON_LOADED", function(name) if name == addon then initialize() end end)
 ns.On("PLAYER_ENTERING_WORLD", function()
-    ns.inWorld = true; identify()
+    ns.inWorld = true; identify(); observeDetails()
     for name, module in pairs(ns.modules) do
         if not pcall(invoke,module,"Start") then
             ns.notice="Module startup unavailable"
@@ -187,7 +225,14 @@ ns.On("PLAYER_ENTERING_WORLD", function()
     ns.Notify()
 end)
 ns.On("PLAYER_LEAVING_WORLD", function() ns.inWorld = false end)
-ns.On("PLAYER_LOGOUT", function() ns.inWorld = false end)
+ns.On("PLAYER_LEVEL_UP", function(level)
+    if ns.inWorld then observeDetails(true,level) end
+end)
+ns.On("PLAYER_LOGOUT", function()
+    -- Normal logout/reload save boundary; leaving-world may already have fired.
+    observeDetails()
+    ns.inWorld = false
+end)
 frame:SetScript("OnEvent", function(_, event, ...)
     local callbacks = ns.events[event] or {}
     -- On may append during a callback; only the initial list length participates.

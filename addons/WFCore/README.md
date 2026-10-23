@@ -136,8 +136,8 @@ and these guarantees still require live-client validation.
 | Trigger | Core behavior |
 | --- | --- |
 | Core's ADDON_LOADED | Initializes/validates the save envelope and sets db. Does not identify the player or call module hooks. Other addons' ADDON_LOADED events do not initialize Core. |
-| Every PLAYER_ENTERING_WORLD | Sets inWorld=true, clears character/owner and attempts identification, then runs registered Start hooks, then Notify hooks. This also applies to repeated entry events and re-entry after leaving/logout. |
-| PLAYER_LEAVING_WORLD or PLAYER_LOGOUT | Sets inWorld=false. Retains db/character/owner references and saved history. Does not call Start, Notify or an automatic Stop hook. |
+| Every PLAYER_ENTERING_WORLD | Sets inWorld=true, clears character/owner and attempts identification, observes details when ownership is usable, then runs registered Start hooks, then Notify hooks. This also applies to repeated entry events and re-entry after leaving/logout. |
+| PLAYER_LEAVING_WORLD or PLAYER_LOGOUT | Sets inWorld=false. Logout first attempts a GUID-checked details observation for the normal save boundary. Retains db/character/owner references and inventory history. Does not call Start, Notify or an automatic Stop hook. |
 | Register after world entry | Stores the module without invoking hooks or replaying events. Start first runs on the next world-entry event. |
 | Explicit Notify | Calls registered Notify hooks even before Start, outside the world, or without usable identity/storage. Does not identify the player, initialize storage or call Start. |
 
@@ -240,6 +240,40 @@ The companion consumes local saved files after WoW flushes them on reload/logout
 There is no socket, HTTP service, live two-way bridge or companion code in this addon.
 Core alone preserves inventory history but cannot create new inventory observations.
 Both addons must be enabled to collect bags/bank data.
+
+## Saved character details (source-only)
+
+Core optionally writes `WFCoreDB.characters[guid].details`, independent of
+`identity`, `client` and inventory `locations`. This schema-1 observation contains
+classID, classToken, className, level and observedAt, with a `status` table naming
+each field as `ok` or `unknown`. Unknown fields are absent, never zero or a stale
+value paired with a new timestamp. Missing details in older saves means Unknown.
+Class names are localized and use Read's markup/control sanitization and 160-byte
+limit. A class token or ID must not be inferred from the name.
+
+Details refresh after identity on every PLAYER_ENTERING_WORLD (including login
+and reload), before Start/Notify; on PLAYER_LEVEL_UP while in world using its
+guarded new-level payload; and on PLAYER_LOGOUT before Core clears inWorld.
+The latter covers the normal logout/reload save boundary, including when
+PLAYER_LEAVING_WORLD fired first. No reload hooks, timers, polling, save-file writes
+or automatic UI actions are introduced. Actual client save ordering remains a
+live-test item. No new module API or login lifecycle event is introduced.
+
+Every observation rechecks UnitGUID against the selected owner and record. Without
+usable storage or matching identity it preserves the previous record/timestamp.
+Otherwise readable fields replace the preceding schema-1 observation, with Unknown
+for unavailable/restricted/invalid fields. observedAt is guarded GetServerTime in
+Unix seconds: the observation attempt time, not file flush time, inventory freshness
+or proof of live identity. An unavailable clock has unknown status and no timestamp.
+Other characters, settings and inventory records remain untouched. Unsupported
+existing details schemas/values are preserved; consumers must display Unknown for
+them. Envelope schema 1, inventorySchema 2, producer WFCore, Core 0.7.0 / API 1 and
+Storage's snapshot addonVersion are unchanged. No installed package is updated.
+
+See `research/WFCORE_CHARACTER_DETAILS_HANDOFF.md` for exact types, bounds,
+companion adoption rules, API evidence and pending live checks. The companion owner
+must review this additive contract before changing its header reader. DataStore
+fallback policy and parsing belong to that chat; no companion code changed here.
 
 ## Packaging
 

@@ -1,18 +1,18 @@
 {
   "schema": 1,
-  "status": "release-reviewed-with-known-limitations",
+  "status": "local-candidate-review-pending",
   "client_build": "70532",
   "interface": 16001,
   "packages": {
     "WFCore": {
       "version": "0.7.0",
-      "source_commit": "4022228c6e35db7d241c1ab032d56b44fcdecabe",
-      "archive_sha256": "00ca923a2f3c6b8607f97828355913ade86b7027630e49cee7c5c946c3e01cee",
+      "source_commit": "2fd8aa2a14616197d235c7a31a05f7902704f039",
+      "archive_sha256": "f031915e838b8cf1b62ba8c714b3e417f2065c4a01a35535336eda1b7efea348",
       "files": {
-        "Core.lua": "6ed2b8fc5cf3ad2ec7d395275e78538cd5df269d86538eb49e67780925d5a7a6",
+        "Core.lua": "bc1df6b852364140a31b31f0993538858902595eef1adb07b7bf72b53f6add76",
         "Welcome.lua": "db05ffef9651371c520d305c66a8b0df8133e7c5b6c96da1d9fac6323aca14fc",
         "WFCore.toc": "bbb64b3651a8aa9bbd66ff8ef48b629c975257e60805a5298e23e68266e6eb5d",
-        "README.md": "9d1c6969d71ee26bbb81034e3ff4a09166cf07ae6c9d275f909508098d2672a1",
+        "README.md": "610bd8e7f128ac6871d0391ebddfcf0b9a4ae1f4954783a7f3e550ee2d13be9b",
         "LICENSE": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
       }
     },
@@ -43,6 +43,8 @@
   "known_limitations": [
     "Tested client: Forever Beta 70532/interface 16001; future builds unverified.",
     "Readable guild tabs and permission transitions remain untested.",
-    "Saved inventory remains read-only; automatic count replacement is unchanged."
+    "Saved inventory remains read-only; automatic count replacement is unchanged.",
+    "Core naturally earned level-change validation remains pending; Beta ended per user report.",
+    "Core full inventory/history preservation is not established; public release review remains pending."
   ]
 }
