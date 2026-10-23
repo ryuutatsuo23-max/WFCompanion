@@ -34,9 +34,6 @@ class SettingsMixin:
         self.startup_check=checkbox();startup.box.addWidget(self.startup_check)
         self.startup_status=label('Off by default. Changes apply immediately.');startup.box.addWidget(self.startup_status)
         self.startup_check.toggled.connect(self.change_windows_startup)
-        from character_follow import CharacterFollow
-        self.character_follow=CharacterFollow(self);layout.addWidget(self.character_follow)
-        self.character_follow.box.addWidget(self.follow_notice)
         from close_behavior import CloseBehavior, CHOICES
         self.close_behavior=CloseBehavior(self)
         closing=Panel(self,'Closing the window');layout.addWidget(closing)
