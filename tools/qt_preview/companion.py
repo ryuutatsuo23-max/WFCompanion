@@ -81,6 +81,11 @@ class Companion(SettingsMixin, Preview):
         from saved_character_connection import SavedCharacterConnection
         self.saved_character_connection=SavedCharacterConnection(self)
         self.saved_character_connection.start()
+        from saved_character_header import HeaderObservations
+        self.header_observations=HeaderObservations()
+        self.header_timer=QTimer(self);self.header_timer.setInterval(2000)
+        self.header_timer.timeout.connect(self.refresh_character_header);self.header_timer.start()
+        self.refresh_character_header()
 
     def build(self):
         self.settings={**deepcopy(DEFAULT),**deepcopy(self.data.display.data)}
@@ -96,7 +101,7 @@ class Companion(SettingsMixin, Preview):
         self.preset=self.combo(PRESETS,self.switch_preset)
         self.character_info=QLabel('')
         header=QHBoxLayout();layout.addLayout(header)
-        header.addWidget(field('Character profile',self.character));header.addWidget(field('Playstyle',self.preset))
+        header.addWidget(field('Character',self.character))
         header.addStretch(1)
         self.navigation=row();header.addWidget(self.navigation,0,Qt.AlignmentFlag.AlignTop)
         self.page_picker=PagePicker();self.page_picker.setMinimumWidth(220)
@@ -105,6 +110,7 @@ class Companion(SettingsMixin, Preview):
         self.page_picker.currentTextChanged.connect(self.show_page)
         self.navigation.layout().addWidget(field('Page',self.page_picker))
         layout.addWidget(self.character_info)
+        self.character_info.setWordWrap(True);self.character_info.setTextFormat(Qt.TextFormat.PlainText)
         self.pages=QStackedWidget(); layout.addWidget(self.pages,1)
         self.nav_buttons={name:self.button(name,lambda n=name:self.show_page(n)) for name in TABS}
         self.overview_button=self.nav_buttons['Overview']; self.settings_button=self.nav_buttons['Settings']
@@ -131,7 +137,7 @@ class Companion(SettingsMixin, Preview):
         self.wishlist_destination.linkActivated.connect(lambda _:self.back_to_wishlist())
         self.wishlist_destination.installEventFilter(self)
         self.wishlist_destination.setMaximumWidth(440); self.wishlist_destination.hide()
-        self.inventory_scope=self.combo(['Saved Bags & Bank','Manual · selected character','Manual · all characters'],lambda text:self.set_inventory_view(self.inventory_scope.currentIndex()))
+        self.inventory_scope=self.combo(['Saved Bags & Bank','Manual Â· selected character','Manual Â· all characters'],lambda text:self.set_inventory_view(self.inventory_scope.currentIndex()))
         inventory_tools=QWidget();inventory_tools.box=QVBoxLayout(inventory_tools);inventory_tools.box.setContentsMargins(8,4,8,4)
         inventory_tools.box.addWidget(row(field('View',self.inventory_scope)))
         inventory_tools.box.addWidget(row(self.wishlist_back,self.wishlist_destination))
@@ -150,7 +156,7 @@ class Companion(SettingsMixin, Preview):
         self.playstyle_page=add('Gear wishlist',PlaystylePage(self)); self.show_gear_section(False)
         self.profile_page=add('Profiles & Rules',ProfilesPage(self)); self.tracker_page=add('Party & Trackers',TrackersPage(self))
         self.probe_page=ProbePage(self); self.page_layouts[TABS.index('Activity')].addWidget(self.probe_page)
-        activity=Panel(self,'Activity · this session'); self.page_layouts[TABS.index('Activity')].addWidget(activity)
+        activity=Panel(self,'Activity Â· this session'); self.page_layouts[TABS.index('Activity')].addWidget(activity)
         self.activity_table=Table(['Time','Character','Source','State','Details'],height=450); activity.box.addWidget(self.activity_table)
         activity.box.addWidget(row(self.button('Copy log',self.copy_log),self.button('Clear log',self.clear_log)))
         activity.box.addWidget(label('Only state changes and reminders are logged. Up to 200 rows; never saved automatically.'))
@@ -223,7 +229,7 @@ class Companion(SettingsMixin, Preview):
         inputs.box.addWidget(row(field('Your HP %',self.hp),field('Primary party HP %',self.party),field('Primary cooldown seconds',self.cooldown)))
         self.sim=Form(self,[('buff','Primary buff',('Present','Missing','Unknown'),'Present'),('readings','Readings',('Normal','Unknown','Frozen'),'Normal'),
             ('confirmed','Primary party identity confirmed',bool,True),('own_unknown','Your HP Unknown',bool,False),('party_unknown','Party HP Unknown',bool,False),
-            ('cooldown_unknown','Cooldown Unknown',bool,False),('buff_seconds','Buff remaining seconds · simulation',str,'60')])
+            ('cooldown_unknown','Cooldown Unknown',bool,False),('buff_seconds','Buff remaining seconds Â· simulation',str,'60')])
         inputs.box.addWidget(self.sim); inputs.box.addWidget(label('All values are simulated. Cooldown ready does not establish castability. Customize rules in Profiles & Rules and additional readings in Party & Trackers.'))
         self.sim.changed(self.stop_demo)
 
@@ -231,7 +237,7 @@ class Companion(SettingsMixin, Preview):
         self.character.blockSignals(True); self.character.clear()
         for p in self.data.profiles: self.character.addItem(p.name,p.id)
         self.character.setCurrentIndex(self.character.findData(self.data.active)); self.character.blockSignals(False)
-        p=self.data.profile; self.character_info.setText(f'{p.character_class} · {p.role} · Level {p.level if p.level is not None else "Unknown"}')
+        self.refresh_character_header()
         self.sync_preset()
         self.sync_wishlist_return()
         self.alt_inventory.invalidate()
@@ -239,18 +245,23 @@ class Companion(SettingsMixin, Preview):
         for name in ('profile_page','tracker_page'):
             if hasattr(self,name): getattr(self,name).refresh()
 
+    def refresh_character_header(self):
+        if not hasattr(self,'header_observations'):return
+        text,detail=self.header_observations.describe(self.data.directory,self.data.active)
+        self.character_info.setText(text);self.character_info.setToolTip(detail)
+
     def sync_preset(self):
         name=self.data.playstyles.active(self.data.active)
         available=self.data.playstyles.available(self.data.active,self.data.profile.character_class)
         self.preset.blockSignals(True); self.preset.clear()
         for choice in available: self.preset.addItem(choice,choice)
-        if name not in available: self.preset.addItem(name+' · retained',name)
+        if name not in available: self.preset.addItem(name+' Â· retained',name)
         self.preset.setCurrentIndex(self.preset.findData(name)); self.preset.blockSignals(False)
         self.playstyle_options.refresh()
-        self.playstyle_context.setText(f'{self.data.profile.name} · {name} · Inventory & Bank shared across this character’s playstyles. General keeps the original wishlist.')
+        self.playstyle_context.setText(f'{self.data.profile.name} Â· {name} Â· Inventory & Bank shared across this characterâ€™s playstyles. General keeps the original wishlist.')
 
     def switch_preset(self,name,allow_retained=False):
-        if name.endswith(' · retained'): name=name.removesuffix(' · retained')
+        if name.endswith(' Â· retained'): name=name.removesuffix(' Â· retained')
         if not hasattr(self,'gear_page'): return False
         if name==self.data.playstyles.active(self.data.active): return True
         if name not in PRESETS or (not allow_retained and name not in self.data.playstyles.available(self.data.active,self.data.profile.character_class)): return False
@@ -299,10 +310,10 @@ class Companion(SettingsMixin, Preview):
         if active:
             character,preset=self.wishlist_return
             name=next((p.name for p in self.data.profiles if p.id==character),'Unavailable character')
-            destination=f'Return to: {name} · {preset}'
+            destination=f'Return to: {name} Â· {preset}'
             self.wishlist_destination.setText(f'<a href="return-wishlist" style="color: {self.colors[3]};">{escape(wrap_filter_feedback(destination))}</a>')
             self.wishlist_destination.setAccessibleName(destination)
-            self.wishlist_destination.setToolTip(destination+' · Click to return. Filters and unfinished edits stay unchanged.')
+            self.wishlist_destination.setToolTip(destination+' Â· Click to return. Filters and unfinished edits stay unchanged.')
             self.wishlist_back.setToolTip(destination+'. Filters and unfinished edits stay with their characters.')
         else:
             self.wishlist_destination.clear(); self.wishlist_destination.setAccessibleName(''); self.wishlist_destination.setToolTip(''); self.wishlist_back.setToolTip('')
@@ -414,7 +425,7 @@ class Companion(SettingsMixin, Preview):
             if kind=='buff': self.sim.load({'buff':value})
             elif kind=='party': self.party.setValue(round(value or 0)); self.sim.load({'party_unknown':value is None,'confirmed':confirmed})
             else:
-                # The quick slider covers 0–60s; the tracker editor retains exact
+                # The quick slider covers 0â€“60s; the tracker editor retains exact
                 # longer readings without clamping them to that display range.
                 self.cooldown.blockSignals(True); self.cooldown.setValue(round(value or 0)); self.cooldown.blockSignals(False)
                 self.readings.setdefault(self.data.active,{})[('cooldown','primary')]=(value,False)
@@ -460,19 +471,19 @@ class Companion(SettingsMixin, Preview):
             bar.setValue(round(hp) if known else 0); value.setText(f'{hp:g}%' if known else 'Unknown')
         p=self.data.profile
         known=obs.available and obs.is_fresh(now) and obs.buff!='Unknown'
-        self.buff_text.setText(f'{p.buff_name}: {obs.buff if known else "Unknown"} · remaining: {(self.sim.values()["buff_seconds"] or "Unknown")+"s" if known else "Unknown"}')
-        self.cooldown_text.setText(f'{p.cooldown_name}: '+('Unknown' if not obs.available or not obs.is_fresh(now) or obs.cooldown is None else f'{obs.cooldown:g}s remaining' if obs.cooldown else 'Ready · castability unknown'))
+        self.buff_text.setText(f'{p.buff_name}: {obs.buff if known else "Unknown"} Â· remaining: {(self.sim.values()["buff_seconds"] or "Unknown")+"s" if known else "Unknown"}')
+        self.cooldown_text.setText(f'{p.cooldown_name}: '+('Unknown' if not obs.available or not obs.is_fresh(now) or obs.cooldown is None else f'{obs.cooldown:g}s remaining' if obs.cooldown else 'Ready Â· castability unknown'))
         valid=obs.available and obs.is_fresh(now)
         party=[obs.party_value(t.id) for t in p.trackers('party')]
         confirmed=[r.hp for r in party if valid and r.identity_confirmed and r.hp is not None]
         buffs=[obs.buff_value(t.id) if valid else 'Unknown' for t in p.trackers('buff')]
         cooldowns=[obs.cooldown_value(t.id) if valid else None for t in p.trackers('cooldown')]
         lowest=f'{min(confirmed):g}%' if confirmed else 'Unknown'
-        self.tracker_summary.setText(f'Party: {len(confirmed)}/{len(party)} confirmed · Lowest HP: {lowest} · Buffs missing: {buffs.count("Missing")} ({buffs.count("Unknown")} unknown) · Cooldowns ready: {cooldowns.count(0)} ({cooldowns.count(None)} unknown)')
+        self.tracker_summary.setText(f'Party: {len(confirmed)}/{len(party)} confirmed Â· Lowest HP: {lowest} Â· Buffs missing: {buffs.count("Missing")} ({buffs.count("Unknown")} unknown) Â· Cooldowns ready: {cooldowns.count(0)} ({cooldowns.count(None)} unknown)')
         decisions,notices=self.engine.evaluate(p.rules,obs,now,self.paused)
         self.decisions.rows([(d.rule_id,(d.name,d.code,d.detail,d.binding)) for d in decisions])
         active=next((d for d in decisions if d.code=='active'),None)
-        self.reminder.setText(active.message+(' · '+active.binding if active.binding else '') if active else 'Reminders paused' if self.paused else 'No reminder right now')
+        self.reminder.setText(active.message+(' Â· '+active.binding if active.binding else '') if active else 'Reminders paused' if self.paused else 'No reminder right now')
         for d in decisions:
             code=(d.code,d.detail if d.code!='confirming' else '')
             if self.decision_codes.get((p.id,d.rule_id))!=code:
@@ -481,7 +492,7 @@ class Companion(SettingsMixin, Preview):
         if notices and now-self.last_sound>=3: self.play_sound(); self.last_sound=now
         if self.pages.currentWidget()==self.scrollers['Party & Trackers']: self.tracker_page.refresh()
         names={p.id:p.name for p in self.data.profiles}
-        dirty=', '.join(sorted(key if isinstance(key,str) else f'{key[0]} · {names.get(key[1],"Character")} · {key[2]}' for key in self.data.dirty))
+        dirty=', '.join(sorted(key if isinstance(key,str) else f'{key[0]} Â· {names.get(key[1],"Character")} Â· {key[2]}' for key in self.data.dirty))
         self.footer.setText('Changes need saving: '+dirty if dirty else 'Saved on this PC')
 
     def toggle_demo(self):
@@ -580,6 +591,7 @@ class Companion(SettingsMixin, Preview):
             except (ValueError,OSError): pass
         self.character_overview.game_data_monitor.set_enabled(False)
         self.close_behavior.tray.hide()
+        if hasattr(self,'header_timer'):self.header_timer.stop()
         self.timer.stop()
         if self.catalogue_db: self.catalogue_db.close()
         if self.audio: self.audio.stop(); self.audio.setSource(QUrl())

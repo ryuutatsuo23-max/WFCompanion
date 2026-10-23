@@ -23,6 +23,9 @@ class SettingsMixin:
 
     def build_settings(self,layout):
         layout.addWidget(self.getting_started)
+        self.planning_settings=Panel(self,'Planning settings');layout.addWidget(self.planning_settings)
+        self.planning_settings.box.addWidget(field('Playstyle',self.preset))
+        self.planning_settings.box.addWidget(label('For the selected characterâ€™s gear wishlist and checklist. Changes are remembered immediately; inventory and saved character details stay separate.'))
         from windows_startup import checkbox
         startup=Panel(self,'Windows startup');layout.addWidget(startup)
         self.startup_check=checkbox();startup.box.addWidget(self.startup_check)
@@ -46,7 +49,7 @@ class SettingsMixin:
         self.experience_mode=self.combo(['Easy','Advanced'],self.change_experience_mode)
         experience.box.addWidget(row(field('Mode',self.experience_mode)))
         experience.box.addWidget(label('Easy simplifies Overview, Inventory & Bank, Gear wishlist, Gathering and the Crafting shopping list. Advanced shows dates and record details. Show details is also available on these pages. All data and unfinished edits are kept.'))
-        workspace=Panel(self,'Workspace · visible tabs'); layout.addWidget(workspace)
+        workspace=Panel(self,'Workspace Â· visible tabs'); layout.addWidget(workspace)
         workspace.box.addWidget(label('Choose your workspace. Hiding a tab keeps its records and unfinished fields. Settings is always available.'))
         self.tab_checks={}
         for name in TABS[:-1]:
@@ -65,14 +68,14 @@ class SettingsMixin:
         self.font_choice=self.combo([*FONT_CHOICES,*[f for f in ('Friz Quadrata TT','Arial Narrow','Morpheus','Skurri') if f in self.fonts.available]],self.choose_font)
         self.text_size=self.combo([str(i) for i in range(9,19)],lambda value:self.change('text_size',int(value)))
         self.font_choice.setToolTip('Used when theme fonts are off.')
-        appearance.box.addWidget(row(field('Font style',self.font_choice),field('Text size · points',self.text_size)))
+        appearance.box.addWidget(row(field('Font style',self.font_choice),field('Text size Â· points',self.text_size)))
         self.font_status=label(''); appearance.box.addWidget(self.font_status)
         self.show_art=QCheckBox('Show theme artwork'); self.show_art.toggled.connect(lambda v:self.change('show_artwork',v))
         self.art_mode=self.combo(['Full background','Header'],lambda value:self.change('artwork_mode',value))
         appearance.box.addWidget(row(self.show_art,self.art_mode))
         self.opacity=self.slider(0,60,20,lambda value:self.change('panel_transparency',value)); self.opacity.setObjectName('transparencySlider')
         self.percent=QLabel(); self.percent.setMinimumWidth(65)
-        appearance.box.addWidget(label('Panel transparency · 0% solid, 60% most artwork'))
+        appearance.box.addWidget(label('Panel transparency Â· 0% solid, 60% most artwork'))
         appearance.box.addWidget(row(self.opacity,self.percent))
         sound=Panel(self,'Sound'); layout.addWidget(sound)
         self.sound_check=QCheckBox('Reminder sound'); self.sound_check.toggled.connect(lambda v:self.change('sound',v))
@@ -163,7 +166,7 @@ class SettingsMixin:
         if not hasattr(self,'dirty_button'): return
         self.percent.setText(f"{self.settings['panel_transparency']}%")
         self.volume_label.setText(f"{self.settings['volume']}%")
-        self.dirty_button.setText('Unsaved settings · click to save' if self.settings!=self.saved or self.qt_settings!=self.saved_qt else 'No unsaved settings')
+        self.dirty_button.setText('Unsaved settings Â· click to save' if self.settings!=self.saved or self.qt_settings!=self.saved_qt else 'No unsaved settings')
         self.font_status.setText(self.fonts.status())
 
     def save_session(self):
@@ -175,7 +178,7 @@ class SettingsMixin:
             self.data.display.save(values)
             self.settings['setup']=True; self.saved=deepcopy(self.settings)
             self.data.qt.save(self.qt_settings); self.saved_qt=deepcopy(self.qt_settings)
-            self.session_status.setText('Settings saved in Qt’s separate folder. Character editor drafts unchanged.')
+            self.session_status.setText('Settings saved in Qtâ€™s separate folder. Character editor drafts unchanged.')
         except (ValueError,OSError) as e:
             self.session_status.setText(str(e)); self.refresh_settings_status(); return False
         self.refresh_settings_status(); return True
