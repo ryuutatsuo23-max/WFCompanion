@@ -32,6 +32,14 @@ These are saved snapshots: `/reload` or normal logout lets WoW write new data. T
 
 If your save moves, use **Locate moved save** in Settings. The reconnect preview checks the character identities and keeps your existing profiles and plans. Cancel leaves things unchanged.
 
+## Back up your companion
+
+In **Settings > Companion backup & restore**, choose **Create companion backup** after saving your edits. Keep the ZIP somewhere safe and private.
+
+To restore, choose **Preview backup to restore**, check its date and characters, then choose **Restore and close companion**. A recovery backup is saved first. Reopen the companion afterward. Cancel makes no changes.
+
+Backups include saved companion settings, characters and manual plans. They do not include game saves, addon files or unfinished edits. Missing game-save connections can be reconnected in Settings.
+
 ## Updates and help
 
 Check for updates in **Settings**, or use the update banner when it appears. Save unfinished character or item edits before updating. Companion updates keep your saved preferences and records; they do not automatically update game addons.

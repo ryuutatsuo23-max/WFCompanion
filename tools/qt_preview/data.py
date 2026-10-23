@@ -83,6 +83,8 @@ def validate_qt(data):
 class Data:
     def __init__(self, directory):
         self.directory = Path(directory).resolve()
+        from companion_backup import recover_pending
+        recover_pending(self.directory)
         self.profile_store = ProfileStore(self.directory)
         self.profiles, self.active = self.profile_store.load()
         self.profile_bytes = self.profile_store.path.read_bytes() if self.profile_store.path.exists() else None

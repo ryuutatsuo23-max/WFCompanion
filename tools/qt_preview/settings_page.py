@@ -26,6 +26,9 @@ class SettingsMixin:
         from saved_data_settings import SavedDataSettings
         self.saved_data_settings=SavedDataSettings(self)
         layout.addWidget(self.saved_data_settings)
+        from backup_settings import BackupSettings
+        self.backup_settings=BackupSettings(self)
+        layout.addWidget(self.backup_settings)
         self.planning_settings=Panel(self,'Planning settings');layout.addWidget(self.planning_settings)
         self.planning_settings.box.addWidget(field('Playstyle',self.preset))
         self.planning_settings.box.addWidget(label('For the selected character’s gear wishlist and checklist. Changes are remembered immediately; inventory and saved character details stay separate.'))

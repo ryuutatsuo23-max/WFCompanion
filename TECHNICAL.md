@@ -28,6 +28,14 @@ A smaller update may be offered when a matching patch exists. Otherwise the full
 
 Uninstall through Windows Installed apps. Keeping companion data is the default uninstall choice. WoW SavedVariables are not deleted; installed game addons are managed separately.
 
+## Companion backups
+
+Settings creates versioned ZIP archives of an explicit companion-data allowlist. Each archive includes file hashes and is validated before restore. Restoring replaces supported saved records; records absent from the backup are removed. It does not merge plans. Unrelated files and game saves remain untouched.
+
+A verified recovery ZIP is created in the companion data folder's `Backups` directory before replacement. Interrupted restores recover before the companion loads its data. Recovery ZIPs can also be selected through the same restore preview. Keep recovery files if an error occurs.
+
+Archives contain character names and local file paths; do not share them publicly. Linked game saves, addon installations, unfinished editor drafts, earlier backups and Windows startup registration are excluded. Save applied edits and Settings before backup or restore. If a linked save is unavailable after restoration, reconnect it in Settings. Archive hashes check integrity, not publisher authenticity.
+
 ## Public package and licences
 
 Public builds exclude private characters, captures, settings and plans. They also exclude the development bulk item catalogue and unreviewed Blizzard artwork or proprietary font files. Catalogue search may therefore have no results; saved item names come from supported observations.
