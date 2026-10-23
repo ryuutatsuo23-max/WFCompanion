@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "status": "local-candidate-review-pending",
+  "status": "release-reviewed-with-known-limitations",
   "client_build": "70532",
   "interface": 16001,
   "packages": {
@@ -45,6 +45,6 @@
     "Readable guild tabs and permission transitions remain untested.",
     "Saved inventory remains read-only; automatic count replacement is unchanged.",
     "Core naturally earned level-change validation remains pending; Beta ended per user report.",
-    "Core full inventory/history preservation is not established; public release review remains pending."
+    "Core full inventory/history preservation is not established."
   ]
 }
