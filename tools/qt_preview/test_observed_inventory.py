@@ -83,7 +83,7 @@ class ObservedTests(unittest.TestCase):
                 view.character_scope.setCurrentIndex(1)
                 self.assertEqual(set(view.items.keys),{(active,'bags',100),('alt','bags',100)})
                 self.assertEqual(sorted(int(view.items.item(i,3).text()) for i in range(2)),[7,10])
-                self.assertIn('Unknown',view.notice.text());self.assertIn('partial',view.notice.text())
+                self.assertIn('hasn’t been recorded yet',view.notice.text());self.assertIn('incomplete',view.notice.text())
                 view.buttons['bank'].click();self.assertEqual(view.items.rowCount(),0)
                 view.buttons['all'].click();view.search.setText('100');view.refresh()
                 self.assertEqual(view.items.rowCount(),2);self.assertEqual(view.scope,'all')
@@ -112,14 +112,23 @@ class ObservedTests(unittest.TestCase):
         records=linked_snapshots(self.root,self.data.active)
         records['bags']['rows']=((159,16),(2,100),(1000,2))
         records['bags']['names']={159:'Refreshing Spring Water',2:'alpha',1000:'Beta'}
+        records['bags']['finished']=1792750000
+        records['bank']['finished']=1792740000
         view=w.saved_inventory;disk=files(self.root);manual=deepcopy(w.data.inventories)
         try:
             with patch('observed_inventory_dialog.linked_snapshots',return_value=records):
                 view.refresh();self.assertEqual([key[2] for key in view.items.keys],[2,1000,159])
+                from datetime import datetime
+                for location in ('bags','bank'):
+                    self.assertIn(location.title()+' saved '+datetime.fromtimestamp(records[location]['finished']).strftime('%d %b %Y, %H:%M'),view.notice.text())
+                self.assertNotIn('scan',view.notice.text())
+                self.assertIn('Complete saved snapshot',view.details.text())
                 view.search.setText('  WATER  ');self.assertEqual([key[2] for key in view.items.keys],[159])
+                self.assertEqual(view.search_notice.text(),'Showing 1 of 3 saved items')
                 view.search.setText('159');self.assertEqual([key[2] for key in view.items.keys],[159])
                 view.search.setText('not here');self.assertEqual(view.items.rowCount(),0)
                 self.assertIn('No matching',view.search_notice.text())
+                self.assertIn('Showing 0 of 3 saved items',view.search_notice.text())
                 view.search.clear()
                 view.items.horizontalHeader().sectionClicked.emit(3)
                 self.assertEqual([key[2] for key in view.items.keys],[1000,159,2])
@@ -134,7 +143,7 @@ class ObservedTests(unittest.TestCase):
                 self.assertEqual((view.sort_column,view.sort_descending),(4,True))
                 view.select('bank')
                 self.assertEqual(view.items.rowCount(),0)
-                self.assertIn('contains no items',view.notice.text())
+                self.assertIn('(empty)',view.notice.text())
             self.assertEqual(files(self.root),disk);self.assertEqual(w.data.inventories,manual)
         finally:
             w.close();w.deleteLater();QThreadPool.globalInstance().waitForDone();app.processEvents()
@@ -254,9 +263,9 @@ class ObservedTests(unittest.TestCase):
         dialog=ObservedInventoryDialog(w)
         try:
             dialog.select('bags');self.assertGreater(dialog.items.rowCount(),0)
-            dialog.select('bank');self.assertEqual(dialog.items.rowCount(),0);self.assertIn('contains no items',dialog.notice.text())
+            dialog.select('bank');self.assertEqual(dialog.items.rowCount(),0);self.assertIn('(empty)',dialog.notice.text())
             dialog.character.setCurrentIndex(dialog.character.findData('alt'));dialog.select('bank')
-            self.assertIn('Unknown',dialog.notice.text())
+            self.assertIn('hasn’t been recorded yet',dialog.notice.text())
             self.assertEqual(before,(w.data.active,w.data.inventories,w.data.dirty,w.inventory_page.form.values()))
             self.assertEqual(files(self.root),disk)
         finally:
@@ -281,7 +290,7 @@ class ObservedTests(unittest.TestCase):
             w.switch_character('alt')
             self.assertEqual(view.character.currentData(),'alt')
             self.assertEqual(view.items.rowCount(),0)
-            self.assertIn('Unknown',view.notice.text())
+            self.assertIn('hasn’t been recorded yet',view.notice.text())
             w.switch_character(self.data.active)
             self.assertGreater(view.items.rowCount(),0)
         finally:

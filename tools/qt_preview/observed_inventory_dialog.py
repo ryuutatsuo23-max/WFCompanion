@@ -1,5 +1,6 @@
 """Read-only saved inventory, across characters and locations."""
 from pathlib import Path
+from datetime import datetime
 from PySide6.QtCore import Qt,QTimer
 from PySide6.QtWidgets import QDialog,QVBoxLayout,QComboBox,QLineEdit
 from app import label,row
@@ -142,17 +143,28 @@ class ObservedInventoryDialog(QDialog):
     def select(self,scope):
         self.scope=scope
         for name,button in self.buttons.items():button.setChecked(name==scope)
-        rows=[];details=[];unknown=0;partial=0;times=[];available=0
-        for profile in self.profiles():
+        rows=[];details=[];summaries=[]
+        profiles=self.profiles()
+        for profile in profiles:
+            prefix=profile.name+': ' if len(profiles)>1 else ''
+            locations=[]
             if profile.id in self.errors:
+                summaries.append(prefix+'Could not read saved items; see Details.')
                 details.append(profile.name+': Could not read addon observations: '+self.errors[profile.id]);continue
             for location in ('bags','bank') if scope=='all' else (scope,):
                 record=self.ledger.get((profile.id,location))
                 if record is None:
-                    unknown+=1;details.append(f'{profile.name} · {location.title()}: Unknown — not observed.');continue
-                available+=1
+                    locations.append(f'{location.title()} hasn’t been recorded yet')
+                    details.append(f'{profile.name} · {location.title()}: Unknown — not observed.');continue
                 is_partial=record.get('direct') and (record['coverage']!='complete' or record['interrupted'])
-                partial+=bool(is_partial);times.append(record['finished'])
+                stamp=record.get('finished')
+                try:saved=datetime.fromtimestamp(stamp).strftime('%d %b %Y, %H:%M') if stamp is not None else None
+                except (ValueError,OSError,OverflowError):saved=None
+                summary=f'{location.title()} saved {saved}' if saved else f'{location.title()} saved · time unavailable'
+                if is_partial:summary+=' (incomplete; some items may be missing)'
+                elif not record['rows']:summary+=' (empty)'
+                if not Path(record['identity']['source']).is_file():summary+=' · source unavailable'
+                locations.append(summary)
                 state='Partial scan; quantities are subtotals' if is_partial else 'Complete saved snapshot'
                 if not Path(record['identity']['source']).is_file():state+=' · source unavailable'
                 details.append(f'{profile.name} · {location.title()}: {state} · {observed_time(record["finished"])}')
@@ -163,20 +175,13 @@ class ObservedInventoryDialog(QDialog):
                         except (ValueError,OSError):matches=[]
                         name=matches[0].name if matches else f'Item #{item}'
                     rows.append(((profile.id,location,item),(name,profile.name,location.title(),quantity,item)))
+            summaries.append(prefix+' · '.join(locations))
         total=len(rows);query=self.search.text().strip().casefold()
         rows=[entry for entry in rows if not query or query in entry[1][0].casefold() or query in str(entry[1][4])]
         def sort_key(entry):
             value=entry[1][self.sort_column]
             return (value.casefold() if isinstance(value,str) else value,entry[0])
         rows.sort(key=sort_key,reverse=self.sort_descending);self.items.rows(rows)
-        self.search_notice.setText('No matching saved items.' if query and not rows else f'{len(rows)} of {total} saved item rows shown.' if query else f'{total} saved item rows.')
-        messages=[]
-        if self.errors:messages.append(f'Could not read addon observations for {len(self.errors)} character(s); see Details.')
-        if unknown:messages.append(f'{unknown} location(s) Unknown — not observed.')
-        if partial:messages.append(f'{partial} partial scan(s): quantities are subtotals.')
-        if available and not total and not partial:messages.append('This complete saved snapshot contains no items.' if available==1 else 'These complete saved snapshots contain no items.')
-        if times:
-            messages.append('Saved '+observed_time(max(times))+'.' if len(set(times))==1 else 'Saved times vary; see Details.')
-        if not messages:messages.append('No saved observations. Unknown, not empty.')
-        self.notice.setText(' '.join(messages))
+        self.search_notice.setText((f'Showing {len(rows)} of {total} saved items'+(' · No matching items' if not rows else '')) if query else f'{total} saved item'+('' if total==1 else 's'))
+        self.notice.setText('\n'.join(summaries) if summaries else 'No saved characters to show.')
         self.details.setText('\n'.join(details)+'\nSaved observations, not live inventory. Manual plans and automatic count replacement are unchanged.')
