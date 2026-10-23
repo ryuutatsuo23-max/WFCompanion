@@ -50,7 +50,7 @@ class AddonTests(unittest.TestCase):
             original=Path.write_bytes
             failed=[]
             def write(path,raw):
-                if path==client/'Interface/AddOns/WFStorage/WFStorage.toc' and not failed:
+                if path.resolve()==(client/'Interface/AddOns/WFStorage/WFStorage.toc').resolve() and not failed:
                     failed.append(True);raise OSError('simulated write failure')
                 return original(path,raw)
             with patch.object(Path,'write_bytes',write):
