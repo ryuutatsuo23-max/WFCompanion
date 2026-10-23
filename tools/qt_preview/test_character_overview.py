@@ -155,6 +155,51 @@ class OverviewTests(unittest.TestCase):
             (root/'addon_inventory.json').write_text('broken')
             self.assertTrue(all('Unavailable' in value for value in dict(summaries(data,now))['first-character'][3:5]))
 
+    def test_direct_snapshots_override_planning_ledger_without_writes(self):
+        from data import Data
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);seed(root);data=Data(root)
+            now=datetime(2026,10,23,12,tzinfo=timezone.utc)
+            saved=dict(finished=int(now.timestamp()),rows=((159,16),),coverage='complete',unknown=0,interrupted=False)
+            direct={'bags':saved,'bank':dict(saved,rows=())}
+            before=files(root)
+            with patch('character_overview.linked_snapshots',side_effect=lambda directory,profile:direct if profile=='first-character' else {}):
+                records=dict(summaries(data,now))
+                self.assertIn('addon snapshot',records['first-character'][3])
+                self.assertIn('saved empty',records['first-character'][4])
+                self.assertEqual(records['alt'][3:5],('Not captured','Not captured'))
+                direct['bank']=dict(saved,rows=(),coverage='partial')
+                self.assertIn('incomplete',dict(summaries(data,now))['first-character'][4])
+                self.assertNotIn('saved empty',dict(summaries(data,now))['first-character'][4])
+            with patch('character_overview.linked_snapshots',side_effect=ValueError('invalid source')):
+                self.assertTrue(all('Unavailable' in value for value in dict(summaries(data,now))['first-character'][3:5]))
+            self.assertEqual(files(root),before)
+
+    def test_card_opens_saved_selected_character_from_manual_view(self):
+        app=QApplication.instance() or QApplication([])
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);seed(root);w=Companion(root);w.testing=True
+            try:
+                w.updates_panel.timer.stop();w.saved_character_connection.timer.stop()
+                w.inventory_page.form.load({'name':'Unfinished manual item'})
+                w.set_inventory_view(1)
+                w.saved_inventory.character_scope.setCurrentIndex(1)
+                w.saved_inventory.search.setText('water')
+                before=files(root)
+                w.character_overview.card_buttons['alt'][0].click()
+                self.assertEqual(w.data.active,'alt')
+                self.assertEqual(w.inventory_scope.currentIndex(),0)
+                self.assertEqual(w.saved_inventory.character_scope.currentIndex(),0)
+                self.assertEqual(w.saved_inventory.search.text(),'water')
+                self.assertEqual(w.pages.currentWidget(),w.scrollers['Inventory & Bank'])
+                w.switch_character('first-character')
+                self.assertEqual(w.inventory_page.form.values()['name'],'Unfinished manual item')
+                after=files(root)
+                for name,value in before.items():
+                    if not name.startswith('profiles'):self.assertEqual(after[name],value,name)
+            finally:
+                QThreadPool.globalInstance().waitForDone();w.close();w.deleteLater();app.processEvents()
+
     def test_dates_and_unknown_are_explicit(self):
         now=datetime(2026,10,22,12,tzinfo=timezone.utc)
         self.assertEqual(observation_status([],now),'Not captured')

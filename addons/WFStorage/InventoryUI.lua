@@ -142,9 +142,9 @@ function ns.CharacterLabel(identity)
 end
 
 local settingsDefs={
-    Main={{"theme","Theme"},{"dimPoor","Dim poor quality"},{"nativeUI","Native UI"}},
+    Main={{"uiMode","Interface"},{"showMinimapButton","Minimap button"},{"theme","Theme"},{"dimPoor","Dim poor quality"},{"nativeUI","Native UI"}},
     Organize={{"category","Category filter"},{"order","Display order"},{"favoritesFirst","Favorites first"},
-        {"showUnknown","Unresolved slots"},{"showDetails","Scan details"},{"bindB","B shortcut"}},
+        {"showUnknown","Unresolved slots"},{"showDetails","Scan details"},{"bindB","Bag keybinds"}},
     Appearance={{"view","View"},{"opacity","Background"},{"iconSize","Icon size"},
         {"columns","Grid columns"},{"fontSize","Text size"},{"windowScale","Window scale"}},
 }
@@ -631,6 +631,7 @@ function ns.ToggleSettings(target)
     settingsPanel:Show(); updateSettings()
 end
 function ns.ShowInventory(selectedScope)
+    if ns.UsesNativeUI() then return end
     if not window then create() end
     if ns.inventory.bankOpen and not (ns.db and ns.db.settings.position) then
         window:ClearAllPoints(); window:SetPoint("CENTER",UIParent,"CENTER",250,0)
@@ -641,6 +642,10 @@ function ns.ShowInventory(selectedScope)
     window:Show(); ns.RefreshUI()
 end
 SlashCmdList.WFSTORAGE=function(message)
+    local command=type(message)=="string" and message:lower():match("^%s*(.-)%s*$") or ""
+    if command=="settings" or ns.UsesNativeUI() then
+        ns.ToggleSettings("bags");settingsPage="Main";updateSettings();return
+    end
     if type(message)=="string" and message:lower():match("^%s*guild%s*$") and ns.ShowGuildVault then
         ns.ShowGuildVault();return
     end
@@ -650,3 +655,11 @@ end
 
 -- Compatibility for existing integrations; slash ownership belongs to Storage.
 SlashCmdList.WFCORE=SlashCmdList.WFSTORAGE
+
+function ns.HideStorageWindows()
+    local keepSettings=settingsPanel and settingsPanel:IsShown()
+    if window then window:Hide() end
+    if ns.HideBankUI then ns.HideBankUI() end
+    if ns.HideGuildVault then ns.HideGuildVault() end
+    if keepSettings then settingsPanel:Show();updateSettings() end
+end

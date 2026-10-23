@@ -37,6 +37,9 @@ if __name__=='__main__':
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--core-archive',required=True,type=Path)
     parser.add_argument('--storage-archive',required=True,type=Path)
+    parser.add_argument('--professions-archive',type=Path)
     parser.add_argument('--output',required=True,type=Path)
     args=parser.parse_args()
-    print(stage({'WFCore':args.core_archive,'WFStorage':args.storage_archive},args.output))
+    archives={'WFCore':args.core_archive,'WFStorage':args.storage_archive}
+    if args.professions_archive:archives['WFProfessions']=args.professions_archive
+    print(stage(archives,args.output))

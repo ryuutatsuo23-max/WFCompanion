@@ -12,6 +12,7 @@ from app import Panel, label, row
 from widgets import Table
 from equipment_review import EquipmentStore
 from local_journal import LocalStore
+from saved_inventory_view import linked_snapshots
 
 
 def validate_card_preferences(value):
@@ -146,6 +147,21 @@ def summaries(data,now=None):
             elif saved and not data.inventory_store.error:
                 stamp=datetime.fromtimestamp(saved['finished'],timezone.utc).isoformat()
                 inv[index]=observation_status([stamp],now)+(' · saved empty' if not saved['rows'] else ' · addon snapshot')
+        # Direct game snapshots are independent of the manual planning ledger.
+        try:direct=linked_snapshots(data.directory,p.id)
+        except (ValueError,OSError,KeyError,TypeError):
+            inv=['Unavailable · addon saved-file error']*2
+        else:
+            if direct is not None:
+                for index,scope in enumerate(('bags','bank')):
+                    saved=direct.get(scope)
+                    if saved is None:
+                        inv[index]='Not captured';continue
+                    try:stamp=datetime.fromtimestamp(saved['finished'],timezone.utc).isoformat()
+                    except (ValueError,TypeError,OSError,OverflowError):stamp=None
+                    partial=saved['coverage']!='complete' or saved['unknown']>0 or saved['interrupted']
+                    suffix=' · incomplete saved scan' if partial else ' · saved empty' if not saved['rows'] else ' · addon snapshot'
+                    inv[index]=observation_status([stamp],now)+suffix
         record=equipment['characters'].get(p.id)
         mismatch=record and p.id.startswith('capture-') and p.id!='capture-'+record['guid']
         equipped='Unavailable · saved-file error' if error else 'Unavailable · GUID mismatch' if mismatch else observation_status(
@@ -334,14 +350,9 @@ class CharacterOverview(Panel):
     def open_card_inventory(self,profile):
         if profile not in {p.id for p in self.host.data.profiles}:return
         self.table.selectRow(self.table.keys.index(profile))
-        from observed_inventory import ObservationStore
-        try:has_saved=any(key[0]==profile for key in ObservationStore(self.host.data.directory).ledger)
-        except (ValueError,OSError,KeyError,TypeError):has_saved=False
-        if has_saved:
-            self.host.switch_character(profile)
-            self.host.show_observed_inventory()
-            return
-        self.open_page('Inventory & Bank')
+        self.host.switch_character(profile)
+        self.host.saved_inventory.character_scope.setCurrentIndex(0)
+        self.host.show_observed_inventory()
 
     def describe(self):
         record=next((values for key,values in self.records if key==self.table.key()),None)

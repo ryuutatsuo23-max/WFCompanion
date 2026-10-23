@@ -234,7 +234,9 @@ function ns.QueryGuildVault()
     elseif not pcall(fn,arg) then request.error="Could not request guild data; try Refresh" end
     ns.RefreshGuildVault()
 end
+function ns.HideGuildVault() if frame then frame:Hide() end end
 function ns.ShowGuildVault()
+    if ns.UsesNativeUI() then return end
     if not frame then
         frame=CreateFrame("Frame",nil,UIParent,"BackdropTemplate")
         frame:SetSize(592,380);frame:SetPoint("CENTER",UIParent,"CENTER",200,0)

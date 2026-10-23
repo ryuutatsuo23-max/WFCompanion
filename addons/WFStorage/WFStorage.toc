@@ -1,5 +1,6 @@
 ## Interface: 16001
 ## Title: Forever Storage
+## IconTexture: Interface\AddOns\WFStorage\branding\forever-storage-icon
 ## Notes: Bags and character bank inventory. Requires Forever Core.
 ## Author: WoWForever
 ## X-License: GPL-3.0-only

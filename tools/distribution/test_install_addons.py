@@ -40,6 +40,53 @@ class AddonTests(unittest.TestCase):
             (payload/'WFStorage/branding/unreviewed.png').write_bytes(b'anything')
             with self.assertRaises(ValueError):install(payload,client,['WFStorage'],root/'backups')
 
+    def test_exact_tga_asset_and_invalid_image_rejection(self):
+        from install_addons import package_files
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);folder=root/'WFStorage';(folder/'branding').mkdir(parents=True)
+            (folder/'WFStorage.toc').write_text('toc')
+            icon=folder/'branding/forever-storage-icon.tga'
+            raw=bytes((0,0,2,0,0,0,0,0,0,0,0,0,128,0,128,0,32,8))+bytes(128*128*4)
+            for value in (raw,raw+bytes(8)+b'TRUEVISION-XFILE.\0'):
+                icon.write_bytes(value);self.assertIn(icon,package_files(root,'WFStorage'))
+            for value in (b'bad',raw[:-1],raw+bytes(26)):
+                icon.write_bytes(value)
+                with self.assertRaisesRegex(ValueError,'TGA'):package_files(root,'WFStorage')
+            icon.write_bytes(raw);icon.rename(icon.with_name('other-icon.tga'))
+            with self.assertRaisesRegex(ValueError,'Unexpected'):package_files(root,'WFStorage')
+
+    def test_professions_pin_dependency_assets_and_rollback(self):
+        from install_addons import package_metadata
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);client=root/'_classic_beta_';client.mkdir();(client/'WowB.exe').touch()
+            payload=root/'package/addons';packages={}
+            for name in ('WFCore','WFProfessions'):
+                folder=payload/name;folder.mkdir(parents=True)
+                (folder/(name+'.toc')).write_text('## Version: 0.1.4\n')
+            folder=payload/'WFProfessions';(folder/'branding').mkdir()
+            (folder/'branding/README.md').write_text('Original artwork')
+            (folder/'branding/forever-professions-logo.png').write_bytes(b'\x89PNG\r\n\x1a\nfixture')
+            (folder/'branding/forever-professions-icon.tga').write_bytes(bytes((0,0,2,0,0,0,0,0,0,0,0,0,64,0,64,0,32,8))+bytes(64*64*4))
+            (folder/'PACKAGE_SHA256.json').write_text(json.dumps(dict(addon='WFProfessions',files={})))
+            with self.assertRaisesRegex(ValueError,'manifest is missing'):install(payload,client,['WFProfessions'],root/'backups')
+            for name in ('WFCore','WFProfessions'):
+                packages[name]=dict(source_commit='a'*40,archive_sha256='b'*64,files={p.relative_to(payload/name).as_posix():hashlib.sha256(p.read_bytes()).hexdigest() for p in (payload/name).rglob('*') if p.is_file()})
+            (payload.parent/'addon_packages.json').write_text(json.dumps(dict(schema=1,packages=packages)))
+            original=Path.write_bytes;failed=[]
+            def write(path,raw):
+                if path==client/'Interface/AddOns/WFProfessions/WFProfessions.toc' and not failed:
+                    failed.append(True);raise OSError('injected Professions failure')
+                return original(path,raw)
+            with patch.object(Path,'write_bytes',write):
+                with self.assertRaisesRegex(OSError,'injected'):install(payload,client,['WFProfessions'],root/'backups')
+            self.assertFalse(any(p.is_file() for p in (client/'Interface').rglob('*')))
+            receipt=install(payload,client,['WFProfessions'],root/'backups')
+            self.assertEqual(receipt['selected'],['WFCore','WFProfessions'])
+            self.assertEqual(set(receipt['packages']),{'WFCore','WFProfessions'})
+            self.assertFalse((client/'Interface/AddOns/WFStorage').exists())
+            (folder/'PACKAGE_SHA256.json').write_text(json.dumps(dict(addon='WFProfessions',files={'tampered':'value'})))
+            with self.assertRaisesRegex(ValueError,'pinned manifest'):package_metadata(payload,['WFProfessions'])
+
     def test_write_failure_restores_existing_files(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp);client=root/'_classic_beta_';client.mkdir();(client/'WowB.exe').touch()

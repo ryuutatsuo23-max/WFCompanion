@@ -230,7 +230,7 @@ local masked={}
 local nativeShown=false
 local merchantOpen=false
 function ns.ReplaceNativeMerchantBags()
-    if merchantOpen and not nativeShown and ns.InteractionReady() and type(CloseAllBags)=="function" then
+    if merchantOpen and not ns.UsesNativeUI() and not nativeShown and ns.InteractionReady() and type(CloseAllBags)=="function" then
         pcall(CloseAllBags)
     end
 end
@@ -255,7 +255,7 @@ local function mask(frame,root)
     for _,child in ipairs({frame:GetChildren()}) do mask(child,false) end
 end
 function ns.ReplaceNativeBank()
-    if not ns.inventory.bankOpen or nativeShown or not ns.InteractionReady() then return end
+    if ns.UsesNativeUI() or not ns.inventory.bankOpen or nativeShown or not ns.InteractionReady() then return end
     if BankFrame and type(BankFrame.GetChildren)=="function" then mask(BankFrame,true) end
     if type(CloseAllBags)=="function" then pcall(CloseAllBags) end
 end
@@ -269,6 +269,18 @@ function ns.ToggleNativeUI()
         ns.ReplaceNativeBank()
     end
 end
+function ns.ApplyUIMode()
+    if not ns.InteractionReady() then return end
+    nativeShown=false
+    if ns.UpdateInventoryBinding then ns.UpdateInventoryBinding() end
+    if ns.UsesNativeUI() then
+        restore()
+        if ns.HideStorageWindows then ns.HideStorageWindows() end
+    elseif ns.inventory.bankOpen then
+        ns.ShowInventory("bags");ns.ShowBankUI();ns.ReplaceNativeBank()
+    end
+end
+ns.On("PLAYER_ENTERING_WORLD",ns.ApplyUIMode)
 local hooked=false
 local function installHooks()
     if hooked or type(hooksecurefunc)~="function" then return end

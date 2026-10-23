@@ -49,6 +49,7 @@ Name: custom; Description: "Choose components"; Flags: iscustom
 [Components]
 Name: companion; Description: "WF Companion (includes runtime)"; Types: companion recommended custom; Flags: fixed
 Name: storage; Description: "Forever Storage - bags and bank (includes required Core)"; Types: recommended
+Name: professions; Description: "Forever Professions - saved professions and recipes (includes required Core)"
 Name: probe; Description: "Stress Probe - diagnostics (optional)"
 Name: display; Description: "Display Test - experimental combat display (optional)"
 [Files]
@@ -149,7 +150,7 @@ begin
 #ifdef PatchName
   Result := False;
 #else
-  Result := WizardIsComponentSelected('storage') or WizardIsComponentSelected('probe') or WizardIsComponentSelected('display');
+  Result := WizardIsComponentSelected('storage') or WizardIsComponentSelected('professions') or WizardIsComponentSelected('probe') or WizardIsComponentSelected('display');
 #endif
 end;
 
@@ -214,6 +215,7 @@ begin
   if (CurStep = ssPostInstall) and HasAddons then begin
     Selected := '';
     if WizardIsComponentSelected('storage') then Selected := 'WFStorage,WFCore';
+    if WizardIsComponentSelected('professions') then Selected := Selected + ',WFProfessions,WFCore';
     if WizardIsComponentSelected('probe') then Selected := Selected + ',WFStressProbe';
     if WizardIsComponentSelected('display') then Selected := Selected + ',WFDisplayTest';
     if Copy(Selected, 1, 1) = ',' then Delete(Selected, 1, 1);

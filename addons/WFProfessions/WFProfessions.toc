@@ -1,0 +1,18 @@
+## Interface: 16001
+## Title: Forever Professions
+## Notes: Recorded journal and manual compatibility probe. Automatic collection disabled.
+## Author: WoWForever
+## Version: 0.1.4
+## IconTexture: Interface\AddOns\WFProfessions\branding\forever-professions-icon
+## X-License: GPL-3.0-only
+## Dependencies: WFCore
+## SavedVariables: WFProfessionsDB, WFProfessionsProbeDB
+Model.lua
+Journal.lua
+CachedProbe.lua
+ItemNames.lua
+OpenProfession.lua
+Presentation.lua
+UI.lua
+Launcher.lua
+Probe.lua

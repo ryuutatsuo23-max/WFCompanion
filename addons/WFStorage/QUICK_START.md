@@ -22,7 +22,9 @@ Do not use the separate older _forever_ installation for these Beta tests.
 
 ## Everyday controls
 
-- Press **B** to open Bags, or type **/wfstorage** if the shortcut is unavailable.
+- Press your saved WoW **Backpack / Open All Bags** key (B by default), or type
+  **/wfstorage**. Storage follows primary and secondary bag bindings; it does not
+  save or reassign keys. Binding changes during combat apply after combat ends.
 - **Bags** shows carried items; **Bank** opens the bank view; **All** combines
   recorded bags and bank items. Visit a banker for live bank access.
 - Drag an item to move it. Right-click to use/equip it, or transfer it while
@@ -99,3 +101,22 @@ Add the Lua error or a screenshot if useful, removing personal information.
 Please do not post your full WTF folder or saved variables publicly.
 
 Original addon code and branding: GPL-3.0-only; see LICENSE. No warranty.
+
+
+## Prefer the original WoW interface?
+
+Choose **Gear → Main settings → Interface → Native**, or type **/wf settings**.
+WoW's own bag, bank and guild-vault windows and saved bag keys remain in control.
+Storage stays loaded and continues recording bags/bank observations for the companion.
+Native mode does not add a live connection: use normal /reload or logout, then
+refresh saved observations in the companion as usual. Guild data is not persisted.
+To return, type **/wf settings** and choose **Interface → Storage**. Change interface
+mode outside combat. Your other appearance choices and saved observations are kept.
+
+
+## Minimap button
+
+Left-click the bag icon beside the minimap to toggle bags; right-click opens Main
+settings. Drag it around the minimap; the position is saved across reloads. In Native
+mode it toggles WoW's original bags. Main settings → Minimap button can hide it;
+**/wf settings** can show it again. The button does not affect companion collection.

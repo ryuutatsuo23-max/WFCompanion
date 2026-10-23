@@ -40,6 +40,34 @@ class AddonsPageTests(unittest.TestCase):
                 self.assertFalse(host.addons_page.action.isEnabled())
             finally:host.close();self.app.processEvents()
 
+    def test_professions_entry_installs_dependency_without_storage(self):
+        import hashlib,json
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);client=root/'_classic_beta_';client.mkdir();(client/'WowB.exe').touch()
+            payload=root/'package/addons';packages={}
+            for name in ('WFCore','WFStorage','WFProfessions'):
+                folder=payload/name;folder.mkdir(parents=True);toc=folder/(name+'.toc');toc.write_text('## Version: 0.7.0\n')
+                packages[name]=dict(version='test',source_commit='a'*40,archive_sha256='b'*64,files={toc.name:hashlib.sha256(toc.read_bytes()).hexdigest()})
+            (payload.parent/'addon_packages.json').write_text(json.dumps(dict(schema=1,packages=packages)))
+            host=Companion(root/'state');host.testing=True;host.updates_panel.timer.stop();host.saved_character_connection.timer.stop()
+            try:
+                page=AddonsPage(host,payload=payload,clients=[client])
+                page.core_action.click()
+                with patch.object(QMessageBox,'question',return_value=QMessageBox.StandardButton.Cancel) as question:
+                    page.professions_action.click();question.assert_not_called()
+                self.assertEqual(page.professions_status.text(),'Installed · matches bundled package')
+                self.assertFalse(page.professions_action.isEnabled())
+                self.assertFalse((client/'Interface/AddOns/WFStorage').exists())
+                self.assertIn('WFProfessions',page.details.text());self.assertIn('WFStorage',page.details.text())
+                target=client/'Interface/AddOns/WFProfessions/WFProfessions.toc';target.write_text('local change');page.refresh()
+                with patch.object(QMessageBox,'question',return_value=QMessageBox.StandardButton.Cancel):page.professions_action.click()
+                self.assertEqual(target.read_text(),'local change')
+                with patch.object(QMessageBox,'question',return_value=QMessageBox.StandardButton.Yes):page.professions_action.click()
+                self.assertEqual(target.read_bytes(),(payload/'WFProfessions/WFProfessions.toc').read_bytes())
+                reopened=AddonsPage(host,payload=payload,clients=[])
+                self.assertFalse(reopened.professions_action.isEnabled())
+            finally:host.close();self.app.processEvents()
+
     def test_ambiguous_clients_require_selection(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp);clients=[root/'_forever_',root/'_classic_beta_']

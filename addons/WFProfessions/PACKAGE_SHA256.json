@@ -1,0 +1,22 @@
+{
+  "addon": "WFProfessions",
+  "client_build": "70532",
+  "interface": 16001,
+  "files": {
+    "WFProfessions.toc": "a8f3aeeaa9295a6b9912486c3e0adeb187767a30fc95dcf1365fda1f7756c5d1",
+    "Model.lua": "3873c376934b9c0621d91faa4cb1d129a2af54c34215fbeb4d6f8a24087c7e1b",
+    "Journal.lua": "7cec3511976323f40718c377b2e806b5b01a1aaccb307ffdb270916c40cc1b57",
+    "CachedProbe.lua": "a2d2b101b66618587bce5a3c3160289cbf456d1a17856b958caa26314a6592d3",
+    "ItemNames.lua": "6baefb63f65da0ab6c55038dcb9933ba0df572ce70621ea8210583177d9900a2",
+    "OpenProfession.lua": "071dd7458b43d7bcdff99d1ffe89eb7d3892f0089d9ca15f5f2f848a70c248d6",
+    "Presentation.lua": "8034e8ec116c838ec8a207fba3859d458e15bbbd135bcfbc7df29d6279ce4a39",
+    "UI.lua": "ce294b3522f9bca1939202e0ba22349d0436522a413e877520e87f7ac09b52d2",
+    "Launcher.lua": "9fd5401a3be0a07287b743fdb7b444076135e3f9701d21658063dcc36d219b7a",
+    "Probe.lua": "b7361cc8e69b1525fe567bb1b379feb3a3a30c266fa538d9fb5c6138504f8f7f",
+    "README.md": "17aa1b25adb9a5837a0e369e160d904c6d9bf973476b99f7c7ffc505e40b337f",
+    "LICENSE": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986",
+    "branding/README.md": "b00c397ad7736691487bb20a385251559f0f34c54d426f9c74eb58d49f5c87df",
+    "branding/forever-professions-logo.png": "ae290067bdb06cf0e36bcdd5ce361d3e61ab08eb49013c7e4bd8e659c74254b5",
+    "branding/forever-professions-icon.tga": "910b2ca72917e6679fd5c1c6b2bc80c7f188919ed52cee0c9f293a6f3b4c68f5"
+  }
+}

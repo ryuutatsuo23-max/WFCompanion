@@ -95,6 +95,7 @@ function ns.RefreshBankUI()
 end
 function ns.HideBankUI() if frame then frame:Hide() end end
 function ns.ShowBankUI()
+    if ns.UsesNativeUI() then return end
     if not frame then
         frame=CreateFrame("Frame",nil,UIParent,"BackdropTemplate")
         ns.EnableEscapeClose(frame,ns.CloseInventoryWindows)

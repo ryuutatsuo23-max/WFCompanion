@@ -1,20 +1,21 @@
 local _, ns = ...
 -- Independent presentation preferences. Never migrate or rewrite observations.
 ns.ViewChoices = {
+    uiMode={"Storage","Native"},
     view={"Grid","List"}, theme={"Slate","Warm","Midnight","Classic"}, opacity={0.85,0.95,1},
     iconSize={32,40,48}, columns={6,8,10}, order={"Slots","Name","Count","Category"}, category={"All","Equipment","Materials","Consumables","Other","Unknown"},
     windowScale={0.85,1,1.15}, fontSize={12,14,16},
 }
-local defaults={view="Grid",theme="Classic",opacity=0.95,iconSize=40,columns=8,
+local defaults={uiMode="Storage",view="Grid",theme="Classic",opacity=0.95,iconSize=40,columns=8,
     category="All",order="Category",windowScale=1,fontSize=14}
-ns.OptionHelp={showBagSlots="Show equipment slots for bags, built-in storage and locked bank expansions.",category="Filter this inventory window by item category. Missing metadata stays Unknown.",
+ns.OptionHelp={showMinimapButton="Show the draggable Storage minimap button. /wf settings can restore it.",uiMode="Use the original WoW windows while Storage keeps recording companion observations. /wf settings switches back.",showBagSlots="Show equipment slots for bags, built-in storage and locked bank expansions.",category="Filter this inventory window by item category. Missing metadata stays Unknown.",
     favoritesFirst="Show favorites first within the selected display order. Never moves items.",view="Choose an icon grid or a named item list.",theme="Choose the theme for all Storage windows.",
     opacity="Change the background opacity; item icons stay opaque.",iconSize="Size of inventory grid icons.",
     columns="Number of icons in each grid row.",fontSize="Size of item labels and counts.",
     windowScale="Scale the whole window; limited to fit your screen.",order="Display order only; does not move items.",
     showUnknown="Show unresolved slot observations for diagnostics.",showDetails="Show scan coverage details.",
     dimPoor="Dim poor-quality icons in Bags and Bank. This does not sell anything.",lockWindow="Prevent dragging inventory windows.",
-    bindB="Use B to toggle Forever inventory. Your saved keybindings are preserved.",
+    bindB="Follow your saved Backpack and Open All Bags keys. Your saved keybindings are preserved.",
     nativeUI="Show or hide native bags and bank for purchases, trading and special actions."}
 function ns.SetTooltip(frame,message)
     frame:SetScript("OnEnter",function()
@@ -43,11 +44,14 @@ function ns.SetViewOption(key,value,target)
         local found=false; for _,v in ipairs(ns.ViewChoices[key]) do if v==value then found=true end end
         if not found then return end
     elseif type(ns.ViewOptions()[key])~="boolean" or type(value)~="boolean" then return end
+    if key=="uiMode" and not ns.InteractionReady() then return end
     local bank=ns.BankViewSettings()
-    if key=="theme" or key=="dimPoor" then target="main" end
+    if key=="theme" or key=="dimPoor" or key=="uiMode" or key=="showMinimapButton" then target="main" end
     if target=="bank" and type(ns.db.settings.storageBankView)~="table" then return end
     local saved=target=="guild" and ns.GuildViewSettings() or target=="bank" and bank or ns.db.settings
     saved[key]=value
+    if key=="showMinimapButton" and ns.RefreshMinimapButton then ns.RefreshMinimapButton() end
+    if key=="uiMode" and ns.ApplyUIMode then ns.ApplyUIMode() end
     if key=="bindB" and ns.UpdateInventoryBinding then ns.UpdateInventoryBinding() end
     ns.RefreshUI()
     if ns.RefreshBankUI then ns.RefreshBankUI() end
@@ -99,6 +103,8 @@ function ns.ViewOptions(target)
     -- Main preferences retain the original root keys. Legacy bank overrides are
     -- kept for preservation, but no longer determine these two shared options.
     local main=ns.db and ns.db.settings or {}
+    result.showMinimapButton=main.showMinimapButton~=false
+    result.uiMode=main.uiMode=="Native" and "Native" or "Storage"
     result.theme=defaults.theme
     for _,value in ipairs(ns.ViewChoices.theme) do if main.theme==value then result.theme=value end end
     result.dimPoor=main.dimPoor~=false
@@ -255,3 +261,5 @@ function ns.CreateLockButton(parent,target)
     button:SetScript("OnClick",function() ns.SetViewOption("lockWindow",not ns.ViewOptions(target).lockWindow,target) end)
     ns.RefreshLockButton(button,target); return button
 end
+
+function ns.UsesNativeUI() return ns.db and ns.db.settings.uiMode=="Native" end

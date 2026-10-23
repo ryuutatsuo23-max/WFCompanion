@@ -35,7 +35,7 @@ def main():
     if package_manifest.exists():
         shutil.copy2(package_manifest,payload/'addon_packages.json')
         from install_addons import package_metadata
-        package_metadata(payload/'addons',['WFCore','WFStorage'])
+        package_metadata(payload/'addons',list(json.loads(package_manifest.read_text(encoding='utf-8'))['packages']))
     # Local testing includes the existing catalogue. Public redistribution review
     # remains a separate release gate; no command here publishes this build.
     source=ROOT/'tools/offline_preview/data/item_sample.json'
