@@ -14,6 +14,36 @@ from test_core_inventory_v2 import lua
 
 
 class ObservedTests(unittest.TestCase):
+    def test_follows_new_alt_save_only_after_baseline_and_skips_ties(self):
+        from unittest.mock import patch
+        from saved_inventory_view import linked_snapshots
+        app=QApplication.instance() or QApplication([]);w=Companion(self.root);w.testing=True
+        w.updates_panel.timer.stop();w.show();w.show_page('Inventory & Bank');app.processEvents()
+        view=w.saved_inventory;original=w.data.active
+        main=linked_snapshots(self.root,original);alt=deepcopy(main)
+        stamp=max(r['finished'] for r in main.values())
+        for r in alt.values():r['finished']=stamp+10
+        def snapshots(directory,profile):return main if profile==original else alt
+        try:
+            with patch('observed_inventory_dialog.linked_snapshots',side_effect=snapshots):
+                view.refresh();self.assertEqual(w.data.active,original)
+                view.character_scope.setCurrentIndex(1);view.select('bank');view.search.setText('water')
+                for r in alt.values():r['finished']=stamp+20
+                self.source.write_bytes(self.source.read_bytes()+b'\n')
+                view.poll_saved_files();self.assertEqual(w.data.active,original)
+                view.poll_saved_files();self.assertEqual(w.data.active,'alt')
+                self.assertEqual(view.character_scope.currentIndex(),0)
+                self.assertEqual(view.scope,'bank');self.assertEqual(view.search.text(),'water')
+                # File rewrites alone and equal-time changes are not a login signal.
+                w.switch_character(original)
+                for records in (main,alt):
+                    for r in records.values():r['finished']=stamp+30
+                self.source.write_bytes(self.source.read_bytes()+b'\n')
+                view.poll_saved_files();view.poll_saved_files()
+                self.assertEqual(w.data.active,original)
+        finally:
+            w.close();w.deleteLater();QThreadPool.globalInstance().waitForDone();app.processEvents()
+
     def test_all_characters_keeps_owners_locations_and_unknowns_separate(self):
         from unittest.mock import patch
         from saved_inventory_view import linked_snapshots
@@ -45,7 +75,7 @@ class ObservedTests(unittest.TestCase):
             all_before=view.source_signature()
             view.character_scope.setCurrentIndex(0);selected_before=view.source_signature()
             alt_source.write_bytes(alt_source.read_bytes()+b'\n')
-            self.assertEqual(view.source_signature(),selected_before)
+            self.assertNotEqual(view.source_signature(),selected_before)
             view.character_scope.setCurrentIndex(1)
             self.assertNotEqual(view.source_signature(),all_before)
         finally:

@@ -43,7 +43,7 @@ class ObservedInventoryDialog(QDialog):
         box.addWidget(self.details)
         if not embedded:box.addWidget(host.button('Close',self.accept))
         self.character.currentIndexChanged.connect(self.refresh);self.character_scope.currentIndexChanged.connect(self.refresh)
-        self._loaded_signature=None;self._pending_signature=None
+        self._loaded_signature=None;self._pending_signature=None;self._saved_times=None
         self.watch_timer=QTimer(self);self.watch_timer.setInterval(2000);self.watch_timer.timeout.connect(self.poll_saved_files)
         host.style_table(self.items);host.wire_nested_scrolling(self);self.refresh()
 
@@ -54,7 +54,8 @@ class ObservedInventoryDialog(QDialog):
         return [p for p in profiles if p.id==active]
 
     def source_signature(self):
-        directory=self.host.data.directory;profiles=tuple(p.id for p in self.profiles())
+        directory=self.host.data.directory
+        profiles=tuple(p.id for p in (self.host.data.saved_profiles if self.embedded else self.profiles()))
         paths={directory/'character_links.json',directory/'addon_inventory.json'}
         paths.update(Path(e['identity']['source']) for e in LinkStore(directory).records['links'] if e['profile'] in profiles)
         values=[]
@@ -77,9 +78,9 @@ class ObservedInventoryDialog(QDialog):
         if signature==self._loaded_signature:self._pending_signature=None;return
         # Two stable observations avoid reading a save while it is being written.
         if signature!=self._pending_signature:self._pending_signature=signature;return
-        self.refresh()
+        self.refresh(follow_new=True)
 
-    def refresh(self):
+    def refresh(self,*,follow_new=False):
         if self.embedded:
             self.character.blockSignals(True);self.character.clear()
             for p in self.host.data.saved_profiles:self.character.addItem(p.name,p.id)
@@ -89,7 +90,7 @@ class ObservedInventoryDialog(QDialog):
         except (OSError,ValueError) as exc:
             self.items.rows([]);self.notice.setText('Could not read addon observations: '+str(exc));self.details.setText('');self.search_notice.setText('');return
         fallback=None
-        for profile in self.profiles():
+        for profile in (self.host.data.saved_profiles if self.embedded else self.profiles()):
             try:
                 snapshots=linked_snapshots(self.host.data.directory,profile.id)
                 if snapshots is None:
@@ -97,6 +98,26 @@ class ObservedInventoryDialog(QDialog):
                     snapshots={scope:r for (pid,scope),r in fallback.items() if pid==profile.id}
                 self.ledger.update({(profile.id,scope):record for scope,record in snapshots.items()})
             except (ValueError,OSError) as exc:self.errors[profile.id]=str(exc)
+        # Establish a baseline on opening/explicit refresh. Only a later stable
+        # file change may select a newly saved character; never infer live login.
+        times={}
+        for (profile,location),record in self.ledger.items():
+            stamp=record.get('finished')
+            if not record.get('direct') or record.get('interrupted') or record.get('coverage')!='complete' or not isinstance(stamp,int):continue
+            key=(profile,record['identity']['source'])
+            times[key]=max(times.get(key,0),stamp)
+        previous=self._saved_times;self._saved_times=times
+        if follow_new and self.embedded and previous is not None and not self.errors:
+            changed=[(stamp,key[0]) for key,stamp in times.items() if key in previous and stamp>previous[key]]
+            if changed:
+                newest=max(stamp for stamp,_ in changed)
+                candidates={profile for stamp,profile in changed if stamp==newest}
+                if len(candidates)==1:
+                    target=candidates.pop()
+                    if target!=self.host.data.active:
+                        self.character_scope.blockSignals(True);self.character_scope.setCurrentIndex(0);self.character_scope.blockSignals(False)
+                        self.host.switch_character(target)
+                        return
         self.select(self.scope)
         if not self.errors:self._loaded_signature=signature;self._pending_signature=None
 
