@@ -26,6 +26,7 @@ def validate_card_preferences(value):
 class CardHandle(QLabel):
     def __init__(self,text,page,key):
         super().__init__(text);self.page=page;self.key=key;self.start=None
+        self.setWordWrap(True)
         self.setContentsMargins(24,4,4,4)
         self.setTextFormat(Qt.TextFormat.PlainText);self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.setCursor(Qt.CursorShape.OpenHandCursor)

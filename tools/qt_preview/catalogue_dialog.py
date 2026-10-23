@@ -1,6 +1,7 @@
 """Local item picker; SQL ownership filters run before the result limit."""
 from dataclasses import asdict
 from PySide6.QtCore import QTimer, Qt
+from PySide6.QtGui import QPalette, QColor
 from PySide6.QtWidgets import QDialog, QVBoxLayout, QScrollArea, QWidget
 from app import row, label
 from widgets import Form, Table, integer, shown
@@ -13,8 +14,10 @@ class ItemPicker(QDialog):
     def __init__(self, host, scope, choose):
         super().__init__(host)
         # Top-level dialogs do not inherit their parent's palette by default.
-        # Keep the themed text readable on the same solid window colour.
-        self.setPalette(host.palette())
+        # Match the dialog panel colour, including the auto-filled scroll body.
+        palette = QPalette(host.palette())
+        palette.setColor(QPalette.ColorRole.Window, QColor(host.colors[1]))
+        self.setPalette(palette)
         self.host,self.scope,self.choose=host,scope,choose
         self.character=host.data.active
         self.setWindowTitle('Local item search · selected character')
@@ -24,8 +27,8 @@ class ItemPicker(QDialog):
         content=QWidget(); box=QVBoxLayout(content); scroll.setWidget(content); layout.addWidget(scroll)
         # QScrollArea enables an auto-filled content surface; explicitly colour
         # that surface too, rather than only the dialog's outer margin.
-        content.setPalette(host.palette())
-        scroll.viewport().setPalette(host.palette())
+        content.setPalette(palette)
+        scroll.viewport().setPalette(palette)
         self.catalogue=host.catalogue()
         options=self.catalogue.filter_options(scope)
         saved=host.data.search_filters.get(self.character,scope)
