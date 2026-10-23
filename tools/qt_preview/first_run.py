@@ -1,4 +1,4 @@
-"""Optional first-launch guide. Only confirmed display preferences are saved."""
+"""Optional first-launch guide. Preferences and an optional addon target are saved only on Finish."""
 from copy import deepcopy
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QWizard, QWizardPage, QVBoxLayout, QLabel, QComboBox, QFormLayout, QLineEdit, QListWidget, QCheckBox, QScrollArea, QWidget
@@ -22,7 +22,7 @@ class SetupGuide(QWizard):
         self.setButtonText(QWizard.WizardButton.FinishButton, 'Save and get started')
         self.add_text_page('Your adventures, in one place',
             'Plan characters, track items and keep wishlists on this PC. WoW does not need to be installed to use the companion.\n\n'
-            'This short guide chooses how much detail you see and makes the text comfortable to read. You can change everything later in Settings.')
+            'Choose your display preferences and optionally select a game folder. You can change everything later in Settings or Addons.')
         page = QWizardPage(); page.setTitle('Make it comfortable')
         page.setAutoFillBackground(True); page.setPalette(host.palette())
         page_layout = QVBoxLayout(page)
@@ -60,11 +60,22 @@ class SetupGuide(QWizard):
             check = QCheckBox(name.replace('&', '&&')); check.setChecked(name not in host.settings['hidden']); checks.addWidget(check); self.tab_checks[name] = check
             check.toggled.connect(self.preview_tabs)
         scroll.setWidget(contents); tabs_layout.addWidget(scroll); self.addPage(tabs)
-        self.add_text_page('Getting your game data',
-            'Start with a character in Overview, then browse Inventory & Bank or make a gear wishlist.\n\n'
-            'When WoW Forever is available, install Forever Storage with Core using the installer. The addons collect data while you play, even when this companion is closed.\n\n'
-            'Use /reload or log out normally to save addon data. In the companion, connect the saved addon file through Settings. An unopened bank remains unknown.\n\n'
-            'No game installation is needed today. Your manual notes and plans stay on this PC.')
+        from game_folder_picker import GameFolderPicker
+        game=QWizardPage();game.setTitle('Choose your game folder (optional)')
+        game_layout=QVBoxLayout(game)
+        game_scroll=QScrollArea();game_scroll.setWidgetResizable(True)
+        body=QWidget();body.setObjectName('guideSurface');body_layout=QVBoxLayout(body)
+        game_scroll.viewport().setObjectName('guideViewport')
+        current=host.addons_page.client
+        self.game_folder=GameFolderPicker(host,roots=host.addons_page.picker.roots,selected=current,auto_select=False)
+        body_layout.addWidget(self.game_folder)
+        help_text=QLabel('Save and get started remembers your choice only. Then open Addons to install Forever Core, Storage or Professions. No addons are installed by this guide.')
+        help_text.setWordWrap(True);body_layout.addWidget(help_text);body_layout.addStretch()
+        game_scroll.setWidget(body);game_layout.addWidget(game_scroll);self.addPage(game)
+        self.add_text_page('Getting your saved game data',
+            'After installing the addons, use /reload or log out normally to save game data. Newly added addons or assets may require a full game restart.\n\n'
+            'Connect the saved addon file through Settings. Choosing an addon installation folder does not change that saved-data connection. Inventory & Bank shows the latest saved observations; an unopened bank remains unknown.\n\n'
+            'Without a game folder, you can still use manual notes and plans. You can choose a folder later on the Addons page.')
         self.apply_guide_style()
 
     def apply_guide_style(self):
@@ -109,10 +120,19 @@ class SetupGuide(QWizard):
 
     def accept(self):
         host = self.host
+        if self.game_folder.changed and self.game_folder.client:
+            from game_folder_picker import validate_client
+            try:validate_client(self.game_folder.client)
+            except (OSError,ValueError,RuntimeError) as exc:
+                from PySide6.QtWidgets import QMessageBox
+                QMessageBox.warning(self,'Game folder unavailable',str(exc));return
         self.preview_appearance(); self.preview_tabs()
         host.qt_settings['experience_mode'] = self.mode.currentText()
         host.apply_appearance(); host.sync_controls()
         if host.save_session():
+            if self.game_folder.changed and not host.addons_page.remember_client(self.game_folder.client):
+                from PySide6.QtWidgets import QMessageBox
+                QMessageBox.warning(self,'Folder choice was not saved',host.addons_page.notice.text());return
             from windows_startup import set_enabled
             try:set_enabled(self.startup.isChecked())
             except OSError as exc:

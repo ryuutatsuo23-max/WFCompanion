@@ -14,6 +14,48 @@ from test_core_inventory_v2 import lua
 
 
 class ObservedTests(unittest.TestCase):
+    def test_empty_states_distinguish_unknown_empty_partial_and_filtered(self):
+        from unittest.mock import patch
+        from saved_inventory_view import linked_snapshots
+        app=QApplication.instance() or QApplication([]);w=Companion(self.root);w.testing=True;w.updates_panel.timer.stop()
+        view=w.saved_inventory;records=linked_snapshots(self.root,w.data.active)
+        disk=files(self.root);manual=deepcopy(w.data.inventories)
+        try:
+            with patch('observed_inventory_dialog.linked_snapshots',return_value=None):
+                view.refresh();self.assertIn('No saved file is connected',view.empty_notice.text())
+            with patch('observed_inventory_dialog.linked_snapshots',return_value={}):
+                view.refresh();self.assertIn('No saved bag items',view.empty_notice.text())
+                view.select('bank');self.assertIn('Bank has not been recorded',view.empty_notice.text())
+            with patch('observed_inventory_dialog.linked_snapshots',return_value=records):
+                view.refresh();self.assertIn('Bank was empty',view.empty_notice.text())
+                view.select('bags');self.assertFalse(view.empty_notice.text())
+                view.search.setText('no such item');self.assertIn('match your search',view.empty_notice.text())
+                view.search.clear();self.assertFalse(view.empty_notice.text())
+            partial=deepcopy(records);partial['bank'].update(coverage='partial',interrupted=True)
+            with patch('observed_inventory_dialog.linked_snapshots',return_value=partial):
+                view.select('bank');view.refresh();self.assertIn('not confirmed empty',view.empty_notice.text())
+                view.search.setText('absent');self.assertNotIn('No matching',view.search_notice.text())
+            self.assertEqual(files(self.root),disk);self.assertEqual(w.data.inventories,manual)
+        finally:w.close();w.deleteLater();QThreadPool.globalInstance().waitForDone();app.processEvents()
+
+    def test_unavailable_source_and_link_errors_do_not_erase_saved_records(self):
+        from unittest.mock import patch
+        apply_prepared(self.data,self.prepared(),self.data.profile_bytes)
+        app=QApplication.instance() or QApplication([]);w=Companion(self.root);w.testing=True;w.updates_panel.timer.stop()
+        view=w.saved_inventory;manual=deepcopy(w.data.inventories)
+        stored=(self.root/'addon_inventory.json').read_bytes();source=self.source.read_bytes()
+        try:
+            self.source.unlink();view.refresh()
+            self.assertIn('unavailable',view.empty_notice.text());self.assertNotIn('was empty',view.empty_notice.text())
+            view.search.setText('water');self.assertIn('unavailable',view.empty_notice.text())
+            self.assertEqual((self.root/'addon_inventory.json').read_bytes(),stored)
+            self.source.write_bytes(source);view.refresh();self.assertNotIn('unavailable',view.empty_notice.text())
+            with patch.object(view,'source_signature',side_effect=ValueError('private technical detail')):
+                view.refresh();view.search.setText('other');self.assertIn('unavailable',view.empty_notice.text())
+                self.assertNotIn('private technical detail',view.notice.text());self.assertIn('private technical detail',view.details.text())
+            self.assertEqual((self.root/'addon_inventory.json').read_bytes(),stored);self.assertEqual(w.data.inventories,manual)
+        finally:w.close();w.deleteLater();QThreadPool.globalInstance().waitForDone();app.processEvents()
+
     def test_navigation_reuses_reads_but_retries_failures_and_reloads_links(self):
         from unittest.mock import patch
         app=QApplication.instance() or QApplication([]);w=Companion(self.root);w.testing=True
@@ -37,6 +79,7 @@ class ObservedTests(unittest.TestCase):
                 self.assertGreater(refresh.call_count,count)
         finally:
             w.close();w.deleteLater();QThreadPool.globalInstance().waitForDone();app.processEvents()
+
     def test_follows_new_alt_save_only_after_baseline_and_skips_ties(self):
         from unittest.mock import patch
         from saved_inventory_view import linked_snapshots

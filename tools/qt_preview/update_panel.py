@@ -2,7 +2,7 @@
 import sys
 import hashlib
 from PySide6.QtCore import QObject,QRunnable,QThreadPool,QTimer,Signal,Qt,QEvent
-from PySide6.QtWidgets import QCheckBox,QMessageBox,QProgressBar,QFrame,QVBoxLayout
+from PySide6.QtWidgets import QCheckBox,QMessageBox,QProgressBar,QFrame,QHBoxLayout
 from app import Panel,label,row
 from storage import write_json
 import release_updates as releases
@@ -30,13 +30,13 @@ class UpdateToast(QFrame):
         self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
         bg=host.colors[1]
         self.setStyleSheet(f'QFrame#updateToast {{ background-color: {bg}; border: 1px solid #bca56c; }}')
-        box=QVBoxLayout(self);box.setContentsMargins(18,16,18,16)
-        box.addWidget(label('WF Companion update available'))
-        message=label('Version '+version+' is ready. Download while you keep working. Restart requires confirmation.')
-        message.setWordWrap(True);box.addWidget(message)
+        box=QHBoxLayout(self);box.setContentsMargins(10,4,10,4)
+        message=label('WF Companion '+version+' is available.')
+        message.setToolTip('Download while you keep working. Restart requires confirmation.')
+        message.setWordWrap(True);box.addWidget(message,1)
         self.update_button=host.button('Update',lambda:(self.accept(),download()))
-        self.cancel_button=host.button('Cancel',self.reject)
-        box.addWidget(row(self.update_button,self.cancel_button))
+        self.cancel_button=host.button('Later',self.reject)
+        box.addWidget(self.update_button);box.addWidget(self.cancel_button)
         host.installEventFilter(self)
         self.reposition()
 
@@ -45,7 +45,7 @@ class UpdateToast(QFrame):
 
     def reposition(self):
         area=self.parentWidget().contentsRect()
-        self.setFixedWidth(min(390,max(1,area.width()-32)))
+        self.setFixedWidth(max(1,area.width()-32))
         self.adjustSize()
         self.move(max(area.left(),area.right()-self.width()-15),area.top()+16)
         self.raise_()

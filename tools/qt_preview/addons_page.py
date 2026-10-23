@@ -10,6 +10,7 @@ from storage import write_json
 if not getattr(sys,'frozen',False):
     sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'distribution'))
 from install_addons import install, validate_client, safe_target, package_files, package_metadata, check_legacy
+from game_folder_picker import GameFolderPicker, find_clients
 
 
 class AddonsPage(Panel):
@@ -17,9 +18,7 @@ class AddonsPage(Panel):
         super().__init__(host,'Addons');self.host=host
         self.payload=Path(payload).resolve() if payload else (Path(sys._MEIPASS)/'payload/addons' if getattr(sys,'frozen',False) else None)
         self.path=host.data.directory/'addon_connection.json';self.client=None
-        self.folder=label('Choose your WoW Forever client folder.');self.folder.setWordWrap(True)
-        self.folder.setTextFormat(Qt.TextFormat.PlainText);self.box.addWidget(self.folder)
-        self.box.addWidget(row(host.button('Choose game folder',self.choose),host.button('Refresh',self.refresh)))
+        self.box.addWidget(host.button('Refresh addon status',self.refresh))
         self.status=label('');self.status.setWordWrap(True);self.status.setTextFormat(Qt.TextFormat.PlainText)
         self.box.addWidget(label('Forever Core'))
         self.box.addWidget(label('Shared character records and save guidance. Required by Forever Storage and Forever Professions.'))
@@ -41,28 +40,33 @@ class AddonsPage(Panel):
         self.box.addWidget(host.button('Details',lambda:self.details.setVisible(not self.details.isVisible())))
         self.box.addWidget(self.details)
         self.notice=label('');self.notice.setWordWrap(True);self.notice.setTextFormat(Qt.TextFormat.PlainText);self.box.addWidget(self.notice)
+        unavailable='';has_saved=self.path.exists()
         try:
-            if self.path.exists():self.client=validate_client(json.loads(self.path.read_text(encoding='utf-8'))['client'])
-        except (OSError,ValueError,KeyError,TypeError):
-            self.notice.setText('The saved game folder is unavailable. Choose it again.')
-        if self.client is None:
-            candidates=clients if clients is not None else [Path(r'C:\Program Files (x86)\World of Warcraft')/name for name in ('_forever_','_classic_beta_')]
-            found=[]
-            for candidate in candidates:
-                try:found.append(validate_client(candidate))
-                except (OSError,ValueError):pass
-            if len(found)==1:self.client=found[0]
-            elif len(found)>1:self.notice.setText('Multiple clients found. Choose the one you want to use.')
+            saved=json.loads(self.path.read_text(encoding='utf-8')).get('client') if self.path.exists() else None
+            if saved:self.client=validate_client(saved)
+        except (OSError,ValueError,KeyError,TypeError,AttributeError,RuntimeError):
+            unavailable=str(locals().get('saved') or self.path)
+        self.picker=GameFolderPicker(host,roots=clients,selected=self.client,auto_select=not has_saved,unavailable=unavailable)
+        self.client=self.picker.client;self.folder=self.picker.target
+        self.box.insertWidget(1,self.picker)
+        self.notice.setText(self.picker.notice.text())
+        self.picker.selectionChanged.connect(self.remember_client)
         self.refresh()
 
-    def choose(self):
-        selected=QFileDialog.getExistingDirectory(self,'Choose WoW Forever client folder',str(self.client or ''))
-        if selected:
-            try:
-                client=validate_client(selected)
-                write_json(self.path,dict(client=str(client)));self.client=client
-                self.notice.setText('Game folder remembered.');self.refresh()
-            except (OSError,ValueError) as exc:self.notice.setText(str(exc))
+    def choose(self):self.picker.choose()
+
+    def remember_client(self,client):
+        try:
+            write_json(self.path,dict(client=str(client) if client else None))
+        except (OSError,ValueError) as exc:
+            self.picker.client=self.client;self.picker.populate(find_clients(self.picker.roots+([self.client] if self.client else [])))
+            self.notice.setText('Folder choice was not saved: '+str(exc));return False
+        self.client=client
+        self.picker.client=client
+        if client:self.picker.roots.append(client)
+        self.picker.populate(find_clients(self.picker.roots))
+        self.notice.setText('Game folder remembered.' if client else 'No game folder selected. Continue offline or choose a folder.')
+        self.refresh();return True
 
     def package_files(self,names=('WFCore','WFStorage')):
         if self.payload is None:raise ValueError('Release package pending. Development addon sources are not offered for installation.')
@@ -74,7 +78,7 @@ class AddonsPage(Panel):
 
     def refresh(self):
         self.action.setEnabled(False);self.core_action.setEnabled(False);self.professions_action.setEnabled(False);self.different=False;self.package_details={}
-        self.folder.setText(str(self.client) if self.client else 'Choose your WoW Forever client folder.')
+        self.picker.describe()
         self.refresh_entry(('WFCore',),self.core_status,self.core_action,'Forever Core')
         self.different=self.refresh_entry(('WFCore','WFStorage'),self.status,self.action,'Forever Storage')
         self.professions_different=self.refresh_entry(('WFCore','WFProfessions'),self.professions_status,self.professions_action,'Forever Professions')
