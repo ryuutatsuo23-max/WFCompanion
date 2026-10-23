@@ -14,6 +14,41 @@ from test_core_inventory_v2 import lua
 
 
 class ObservedTests(unittest.TestCase):
+    def test_saved_search_numeric_sort_and_refresh_preserve_filters(self):
+        from unittest.mock import patch
+        from saved_inventory_view import linked_snapshots
+        app=QApplication.instance() or QApplication([]);w=Companion(self.root);w.testing=True
+        w.updates_panel.timer.stop()
+        records=linked_snapshots(self.root,self.data.active)
+        records['bags']['rows']=((159,16),(2,100),(1000,2))
+        records['bags']['names']={159:'Refreshing Spring Water',2:'alpha',1000:'Beta'}
+        view=w.saved_inventory;disk=files(self.root);manual=deepcopy(w.data.inventories)
+        try:
+            with patch('observed_inventory_dialog.linked_snapshots',return_value=records):
+                view.refresh();self.assertEqual(view.items.keys,[2,1000,159])
+                view.search.setText('  WATER  ');self.assertEqual(view.items.keys,[159])
+                view.search.setText('159');self.assertEqual(view.items.keys,[159])
+                view.search.setText('not here');self.assertEqual(view.items.rowCount(),0)
+                self.assertIn('No matching',view.search_notice.text())
+                view.search.clear()
+                view.items.horizontalHeader().sectionClicked.emit(1)
+                self.assertEqual(view.items.keys,[1000,159,2])
+                view.items.horizontalHeader().sectionClicked.emit(1)
+                self.assertEqual(view.items.keys,[2,159,1000])
+                view.items.horizontalHeader().sectionClicked.emit(2)
+                self.assertEqual(view.items.keys,[2,159,1000])
+                view.items.horizontalHeader().sectionClicked.emit(2)
+                self.assertEqual(view.items.keys,[1000,159,2])
+                view.search.setText('water');view.refresh()
+                self.assertEqual(view.search.text(),'water');self.assertEqual(view.items.keys,[159])
+                self.assertEqual((view.sort_column,view.sort_descending),(2,True))
+                view.locations.selectRow(1)
+                self.assertEqual(view.items.rowCount(),0)
+                self.assertIn('contains no items',view.notice.text())
+            self.assertEqual(files(self.root),disk);self.assertEqual(w.data.inventories,manual)
+        finally:
+            w.close();w.deleteLater();QThreadPool.globalInstance().waitForDone();app.processEvents()
+
     def test_direct_view_keeps_complete_snapshot_over_attempt_and_checks_identity(self):
         from saved_inventory_view import linked_snapshots
         from dataclasses import replace

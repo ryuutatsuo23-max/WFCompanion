@@ -1,6 +1,6 @@
 """Browse separately saved addon observations without switching active profiles."""
 from PySide6.QtCore import Qt,QTimer
-from PySide6.QtWidgets import QDialog,QVBoxLayout,QComboBox
+from PySide6.QtWidgets import QDialog,QVBoxLayout,QComboBox,QLineEdit
 from app import label
 from widgets import Table
 from observed_inventory import ObservationStore
@@ -24,7 +24,15 @@ class ObservedInventoryDialog(QDialog):
         self.locations=Table(['Location','Saved state','Captured (local time)'],self.select,height=120);box.addWidget(self.locations)
         if embedded:self.locations.setMaximumHeight(130)
         self.notice=label('');self.notice.setTextFormat(Qt.TextFormat.PlainText);box.addWidget(self.notice)
+        self.search=QLineEdit();self.search.setPlaceholderText('Search item name or ID…')
+        self.search.setAccessibleName('Search saved items by name or ID');self.search.setClearButtonEnabled(True)
+        box.addWidget(self.search)
+        self.sort_column=0;self.sort_descending=False
         self.items=Table(['Item','Quantity','Item ID'],height=300);box.addWidget(self.items,1)
+        header=self.items.horizontalHeader();header.setSectionsClickable(True);header.setSortIndicatorShown(True)
+        header.setSortIndicator(0,Qt.SortOrder.AscendingOrder);header.sectionClicked.connect(self.sort_items)
+        self.search.textChanged.connect(lambda _:self.select(self.locations.key() or 'bags'))
+        self.search_notice=label('');box.addWidget(self.search_notice)
         box.addWidget(host.button('Refresh saved observations',self.refresh))
         if not embedded:box.addWidget(host.button('Close',self.accept))
         self.character.currentIndexChanged.connect(self.refresh)
@@ -80,7 +88,7 @@ class ObservedInventoryDialog(QDialog):
             self.ledger=({(profile,scope):record for scope,record in snapshots.items()} if snapshots is not None
                          else ObservationStore(self.host.data.directory).ledger)
         except (ValueError,OSError) as exc:
-            self.ledger={};self.locations.rows([]);self.notice.setText('Could not read addon observations: '+str(exc));return
+            self.ledger={};self.locations.rows([]);self.search_notice.setText('');self.notice.setText('Could not read addon observations: '+str(exc));return
         rows=[]
         for scope in ('bags','bank'):
             record=self.ledger.get((profile,scope))
@@ -92,6 +100,12 @@ class ObservedInventoryDialog(QDialog):
         self.select(selected_scope)
         self._loaded_signature=signature;self._pending_signature=None
 
+    def sort_items(self,column):
+        self.sort_descending=not self.sort_descending if column==self.sort_column else False
+        self.sort_column=column
+        self.items.horizontalHeader().setSortIndicator(column,Qt.SortOrder.DescendingOrder if self.sort_descending else Qt.SortOrder.AscendingOrder)
+        self.select(self.locations.key() or 'bags')
+
     def select(self,scope):
         record=self.ledger.get((self.character.currentData(),scope));rows=[]
         if record:
@@ -99,7 +113,13 @@ class ObservedInventoryDialog(QDialog):
                 try:matches=self.host.catalogue().search(str(item),limit=1)
                 except (ValueError,OSError):matches=[]
                 rows.append((item,(record.get('names',{}).get(item) or (matches[0].name if matches else f'Item #{item}'),quantity,item)))
+        total=len(rows);query=self.search.text().strip().casefold()
+        rows=[entry for entry in rows if not query or query in entry[1][0].casefold() or query in str(entry[0])]
+        # Sort the source rows, keeping Table's stable item-ID keys aligned.
+        # Quantities and IDs retain their numeric types rather than text order.
+        rows.sort(key=lambda entry:((entry[1][0].casefold() if self.sort_column==0 else entry[1][self.sort_column]),entry[0]),reverse=self.sort_descending)
         self.items.rows(rows)
+        self.search_notice.setText(('No matching saved items.' if not rows else f'{len(rows)} of {total} saved items shown.') if query and record else '')
         if record:
             partial=record.get('direct') and (record['coverage']!='complete' or record['interrupted'])
             message=('Partial saved scan · quantities are subtotals; missing items remain unknown.' if partial else
