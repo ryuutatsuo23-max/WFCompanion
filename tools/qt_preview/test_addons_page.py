@@ -34,7 +34,7 @@ class AddonsPageTests(unittest.TestCase):
                 backups=list((root/'state/AddonBackups').glob('*/WFStorage/WFStorage.toc'))
                 self.assertTrue(any(p.read_text()=='local modification' for p in backups))
                 reopened=AddonsPage(host,payload=payload,clients=[])
-                self.assertEqual(reopened.client,client)
+                self.assertEqual(reopened.client.resolve(),client.resolve())
                 self.assertEqual(save.read_bytes(),b'personal')
                 self.assertIsNone(host.addons_page.payload)
                 self.assertFalse(host.addons_page.action.isEnabled())
