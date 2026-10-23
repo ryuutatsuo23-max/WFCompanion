@@ -14,6 +14,43 @@ from test_core_inventory_v2 import lua
 
 
 class ObservedTests(unittest.TestCase):
+    def test_all_characters_keeps_owners_locations_and_unknowns_separate(self):
+        from unittest.mock import patch
+        from saved_inventory_view import linked_snapshots
+        app=QApplication.instance() or QApplication([]);w=Companion(self.root);w.testing=True
+        w.updates_panel.timer.stop();view=w.saved_inventory
+        active=w.data.active;manual=deepcopy(w.data.inventories);disk=files(self.root)
+        records=linked_snapshots(self.root,active)
+        other=deepcopy(records['bags']);other['rows']=((100,7),)
+        other['coverage']='partial';other['interrupted']=True
+        def snapshots(directory,profile):return records if profile==active else {'bags':other}
+        try:
+            self.assertEqual(view.scope,'all');self.assertTrue(view.buttons['all'].isChecked())
+            with patch('observed_inventory_dialog.linked_snapshots',side_effect=snapshots):
+                view.character_scope.setCurrentIndex(1)
+                self.assertEqual(set(view.items.keys),{(active,'bags',100),('alt','bags',100)})
+                self.assertEqual(sorted(int(view.items.item(i,3).text()) for i in range(2)),[7,10])
+                self.assertIn('Unknown',view.notice.text());self.assertIn('partial',view.notice.text())
+                view.buttons['bank'].click();self.assertEqual(view.items.rowCount(),0)
+                view.buttons['all'].click();view.search.setText('100');view.refresh()
+                self.assertEqual(view.items.rowCount(),2);self.assertEqual(view.scope,'all')
+                self.assertEqual(view.character_scope.currentIndex(),1)
+            with patch('observed_inventory_dialog.linked_snapshots',side_effect=lambda directory,profile: records if profile==active else (_ for _ in ()).throw(ValueError('unavailable'))):
+                view.refresh();self.assertEqual(view.items.keys,[(active,'bags',100)])
+                self.assertIn('Could not read',view.notice.text())
+            self.assertEqual(w.data.active,active);self.assertEqual(w.data.inventories,manual);self.assertEqual(files(self.root),disk)
+            # All-character monitoring includes an alt's separately linked file.
+            alt_source=self.root/'alt-save.lua';alt_source.write_bytes(self.source.read_bytes())
+            LinkStore(self.root).save(self.data,identity(alt_source,'Player-1-ABC','Test'),'alt')
+            all_before=view.source_signature()
+            view.character_scope.setCurrentIndex(0);selected_before=view.source_signature()
+            alt_source.write_bytes(alt_source.read_bytes()+b'\n')
+            self.assertEqual(view.source_signature(),selected_before)
+            view.character_scope.setCurrentIndex(1)
+            self.assertNotEqual(view.source_signature(),all_before)
+        finally:
+            w.close();w.deleteLater();QThreadPool.globalInstance().waitForDone();app.processEvents()
+
     def test_saved_search_numeric_sort_and_refresh_preserve_filters(self):
         from unittest.mock import patch
         from saved_inventory_view import linked_snapshots
@@ -25,24 +62,24 @@ class ObservedTests(unittest.TestCase):
         view=w.saved_inventory;disk=files(self.root);manual=deepcopy(w.data.inventories)
         try:
             with patch('observed_inventory_dialog.linked_snapshots',return_value=records):
-                view.refresh();self.assertEqual(view.items.keys,[2,1000,159])
-                view.search.setText('  WATER  ');self.assertEqual(view.items.keys,[159])
-                view.search.setText('159');self.assertEqual(view.items.keys,[159])
+                view.refresh();self.assertEqual([key[2] for key in view.items.keys],[2,1000,159])
+                view.search.setText('  WATER  ');self.assertEqual([key[2] for key in view.items.keys],[159])
+                view.search.setText('159');self.assertEqual([key[2] for key in view.items.keys],[159])
                 view.search.setText('not here');self.assertEqual(view.items.rowCount(),0)
                 self.assertIn('No matching',view.search_notice.text())
                 view.search.clear()
-                view.items.horizontalHeader().sectionClicked.emit(1)
-                self.assertEqual(view.items.keys,[1000,159,2])
-                view.items.horizontalHeader().sectionClicked.emit(1)
-                self.assertEqual(view.items.keys,[2,159,1000])
-                view.items.horizontalHeader().sectionClicked.emit(2)
-                self.assertEqual(view.items.keys,[2,159,1000])
-                view.items.horizontalHeader().sectionClicked.emit(2)
-                self.assertEqual(view.items.keys,[1000,159,2])
+                view.items.horizontalHeader().sectionClicked.emit(3)
+                self.assertEqual([key[2] for key in view.items.keys],[1000,159,2])
+                view.items.horizontalHeader().sectionClicked.emit(3)
+                self.assertEqual([key[2] for key in view.items.keys],[2,159,1000])
+                view.items.horizontalHeader().sectionClicked.emit(4)
+                self.assertEqual([key[2] for key in view.items.keys],[2,159,1000])
+                view.items.horizontalHeader().sectionClicked.emit(4)
+                self.assertEqual([key[2] for key in view.items.keys],[1000,159,2])
                 view.search.setText('water');view.refresh()
-                self.assertEqual(view.search.text(),'water');self.assertEqual(view.items.keys,[159])
-                self.assertEqual((view.sort_column,view.sort_descending),(2,True))
-                view.locations.selectRow(1)
+                self.assertEqual(view.search.text(),'water');self.assertEqual([key[2] for key in view.items.keys],[159])
+                self.assertEqual((view.sort_column,view.sort_descending),(4,True))
+                view.select('bank')
                 self.assertEqual(view.items.rowCount(),0)
                 self.assertIn('contains no items',view.notice.text())
             self.assertEqual(files(self.root),disk);self.assertEqual(w.data.inventories,manual)
@@ -163,10 +200,10 @@ class ObservedTests(unittest.TestCase):
         before=deepcopy((w.data.active,w.data.inventories,w.data.dirty,w.inventory_page.form.values()));disk=files(self.root)
         dialog=ObservedInventoryDialog(w)
         try:
-            dialog.locations.selectRow(0);self.assertGreater(dialog.items.rowCount(),0)
-            dialog.locations.selectRow(1);self.assertEqual(dialog.items.rowCount(),0);self.assertIn('contains no items',dialog.notice.text())
-            dialog.character.setCurrentIndex(dialog.character.findData('alt'));dialog.locations.selectRow(1)
-            self.assertIn('No saved addon observation',dialog.notice.text())
+            dialog.select('bags');self.assertGreater(dialog.items.rowCount(),0)
+            dialog.select('bank');self.assertEqual(dialog.items.rowCount(),0);self.assertIn('contains no items',dialog.notice.text())
+            dialog.character.setCurrentIndex(dialog.character.findData('alt'));dialog.select('bank')
+            self.assertIn('Unknown',dialog.notice.text())
             self.assertEqual(before,(w.data.active,w.data.inventories,w.data.dirty,w.inventory_page.form.values()))
             self.assertEqual(files(self.root),disk)
         finally:
@@ -201,7 +238,7 @@ class ObservedTests(unittest.TestCase):
         from unittest.mock import patch
         app=QApplication.instance() or QApplication([]);w=Companion(self.root);w.testing=True
         w.updates_panel.timer.stop();w.show();w.show_page('Inventory & Bank');app.processEvents()
-        view=w.saved_inventory;view.locations.selectRow(1)
+        view=w.saved_inventory;view.select('bank')
         before=deepcopy(w.data.inventories)
         try:
             self.assertTrue(view.watch_timer.isActive())
@@ -210,7 +247,7 @@ class ObservedTests(unittest.TestCase):
                 self.source.write_bytes(self.source.read_bytes()+b'\n')
                 view.poll_saved_files();refresh.assert_not_called()
                 view.poll_saved_files();refresh.assert_called_once()
-                self.assertEqual(view.locations.key(),'bank')
+                self.assertEqual(view.scope,'bank')
                 view.poll_saved_files();self.assertEqual(refresh.call_count,1)
                 # A temporary unreadable/partial save must recover on retry.
                 self.source.write_bytes(self.source.read_bytes()+b'\n')
