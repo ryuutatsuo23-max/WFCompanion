@@ -16,7 +16,7 @@ class NavigationStartupTests(unittest.TestCase):
             try:
                 host.show_page('Inventory & Bank')
                 self.assertEqual(host.page_picker.currentText(),'Inventory & Bank')
-                host.inventory_scope.setCurrentText('All characters')
+                host.inventory_scope.setCurrentText('Manual · all characters')
                 self.assertFalse(host.alt_inventory.isHidden())
                 host.settings['hidden']=['Inventory & Bank'];host.rebuild_navigation()
                 self.assertEqual(host.page_picker.currentText(),'Settings')

@@ -28,7 +28,7 @@ class GatheringPage(Page):
         super().refresh()
         simple=easy_mode(self.host) and not self.show_details.isChecked()
         self.table.setColumnHidden(3,simple)
-        self.stock_notice.setText('Linked characters use saved addon counts; others use manual records. Missing or outdated counts mean not checked yet.' if simple else 'Linked addon bags/bank replace manual counts for these calculations, never add to them. Exact item IDs are required for addon matching. Open Saved addon inventory for timestamps. Unobserved banks and counts predating a recorded craft remain unknown.')
+        self.stock_notice.setText('Linked characters use saved addon counts; others use manual records. Missing or outdated counts mean not checked yet.' if simple else 'Linked addon bags/bank replace manual counts for these calculations, never add to them. Exact item IDs are required for addon matching. Open Inventory & Bank and choose Saved Bags & Bank for timestamps. Unobserved banks and counts predating a recorded craft remain unknown.')
         self.table.rows([(item_key(m.name,m.catalogue_ref),(m.name,m.target,m.source,m.owned)) for m in self.data.plan.materials])
         self.shopping.setHorizontalHeaderLabels(['Material','Needed','Bags','Bank','Have','Still needed','Source'] if simple else ['Material','Needed','Bags','Bank','Owned','Remaining','Source'])
         for col in (2,3):self.shopping.setColumnHidden(col,simple)

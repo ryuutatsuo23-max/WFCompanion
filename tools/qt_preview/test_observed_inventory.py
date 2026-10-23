@@ -137,5 +137,30 @@ class ObservedTests(unittest.TestCase):
         finally:
             dialog.close();dialog.deleteLater();QThreadPool.globalInstance().waitForDone();app.processEvents();w.close();w.deleteLater();app.processEvents()
 
+    def test_inventory_page_defaults_to_saved_and_follows_character_without_editing_plans(self):
+        app=QApplication.instance() or QApplication([]);w=Companion(self.root);w.testing=True
+        w.updates_panel.timer.stop()
+        try:
+            w.inventory_page.form.load({'name':'Unfinished manual edit','quantity':'???'})
+            before=deepcopy((w.data.inventories,w.inventory_page.form.values()));disk=files(self.root)
+            w.show_page('Inventory & Bank')
+            view=w.saved_inventory
+            self.assertEqual(w.inventory_scope.currentIndex(),0)
+            self.assertFalse(view.isWindow());self.assertTrue(w.inventory_page.isHidden())
+            self.assertGreater(view.items.rowCount(),0)
+            w.inventory_scope.setCurrentIndex(1)
+            self.assertTrue(view.isHidden());self.assertFalse(w.inventory_page.isHidden())
+            w.show_observed_inventory()
+            self.assertEqual(before,(w.data.inventories,w.inventory_page.form.values()))
+            self.assertEqual(files(self.root),disk)
+            w.switch_character('alt')
+            self.assertEqual(view.character.currentData(),'alt')
+            self.assertEqual(view.items.rowCount(),0)
+            self.assertIn('Unknown',view.notice.text())
+            w.switch_character(self.data.active)
+            self.assertGreater(view.items.rowCount(),0)
+        finally:
+            w.close();w.deleteLater();QThreadPool.globalInstance().waitForDone();app.processEvents()
+
 
 if __name__=='__main__':unittest.main()

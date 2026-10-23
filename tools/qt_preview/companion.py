@@ -131,14 +131,17 @@ class Companion(SettingsMixin, Preview):
         self.wishlist_destination.linkActivated.connect(lambda _:self.back_to_wishlist())
         self.wishlist_destination.installEventFilter(self)
         self.wishlist_destination.setMaximumWidth(440); self.wishlist_destination.hide()
-        self.inventory_scope=self.combo(['Selected character','All characters'],lambda text:self.show_inventory_section(text=='All characters'))
+        self.inventory_scope=self.combo(['Saved Bags & Bank','Manual · selected character','Manual · all characters'],lambda text:self.set_inventory_view(self.inventory_scope.currentIndex()))
         inventory_tools=QWidget();inventory_tools.box=QVBoxLayout(inventory_tools);inventory_tools.box.setContentsMargins(8,4,8,4)
-        inventory_tools.box.addWidget(row(field('View',self.inventory_scope),self.button('Saved addon inventory',self.show_observed_inventory)))
+        inventory_tools.box.addWidget(row(field('View',self.inventory_scope)))
         inventory_tools.box.addWidget(row(self.wishlist_back,self.wishlist_destination))
         self.page_layouts[TABS.index('Inventory & Bank')].addWidget(inventory_tools)
+        from observed_inventory_dialog import ObservedInventoryDialog
+        self.saved_inventory=ObservedInventoryDialog(self,embedded=True)
+        self.page_layouts[TABS.index('Inventory & Bank')].addWidget(self.saved_inventory)
         self.inventory_page=add('Inventory & Bank',StockPage(self))
         self.alt_inventory=AltInventoryPage(self); self.page_layouts[TABS.index('Inventory & Bank')].addWidget(self.alt_inventory)
-        self.show_inventory_section(False)
+        self.set_inventory_view(0)
         self.playstyle_context=label('')
         self.page_layouts[TABS.index('Gear wishlist')].addWidget(self.playstyle_context)
         self.page_layouts[TABS.index('Gear wishlist')].addWidget(row(self.button('Wishlist',lambda:self.show_gear_section(False)),self.button('Copy from General',self.copy_general_items),self.button('Checklist & notes',lambda:self.show_gear_section(True)),self.button('Playstyle choices',lambda:self.playstyle_options.setVisible(not self.playstyle_options.isVisible()))))
@@ -232,6 +235,7 @@ class Companion(SettingsMixin, Preview):
         self.sync_preset()
         self.sync_wishlist_return()
         self.alt_inventory.invalidate()
+        self.saved_inventory.refresh()
         for name in ('profile_page','tracker_page'):
             if hasattr(self,name): getattr(self,name).refresh()
 
@@ -270,14 +274,16 @@ class Companion(SettingsMixin, Preview):
         dialog=WishlistCopyDialog(self); dialog.exec(); dialog.deleteLater()
 
     def show_inventory_section(self,all_characters):
-        self.inventory_scope.blockSignals(True);self.inventory_scope.setCurrentIndex(int(all_characters));self.inventory_scope.blockSignals(False)
-        self.inventory_page.setVisible(not all_characters); self.alt_inventory.setVisible(all_characters)
+        self.set_inventory_view(2 if all_characters else 1)
+
+    def set_inventory_view(self,index):
+        self.inventory_scope.blockSignals(True);self.inventory_scope.setCurrentIndex(index);self.inventory_scope.blockSignals(False)
+        self.saved_inventory.setVisible(index==0)
+        self.inventory_page.setVisible(index==1);self.alt_inventory.setVisible(index==2)
+        if index==0:self.saved_inventory.refresh()
 
     def show_observed_inventory(self):
-        from observed_inventory_dialog import ObservedInventoryDialog
-        dialog=ObservedInventoryDialog(self)
-        try:dialog.exec()
-        finally:dialog.deleteLater()
+        self.set_inventory_view(0);self.show_page('Inventory & Bank')
 
     def open_inventory_from_wishlist(self,character,origin,item=None):
         if character not in {p.id for p in self.data.profiles}: raise ValueError('Character profile is unavailable.')
@@ -349,6 +355,7 @@ class Companion(SettingsMixin, Preview):
 
     def show_page(self,name):
         if name in self.scrollers:
+            if name=='Inventory & Bank' and hasattr(self,'saved_inventory'):self.saved_inventory.refresh()
             if name=='Overview' and hasattr(self,'character_overview'):self.character_overview.refresh()
             # Cross-links may open a hidden page for this visit without changing
             # the saved visible-tab choices or destroying any drafts.

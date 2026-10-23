@@ -57,7 +57,7 @@ class StockPage(Page):
         self.show_details.toggled.connect(self.refresh)
         self.box.addWidget(self.show_details)
         if not gear:
-            self.simple_notice=label('Manual inventory. Open Saved addon inventory to view game records.')
+            self.simple_notice=label('Manual inventory. Choose Saved Bags & Bank in View to see saved game records.')
             self.box.addWidget(self.simple_notice)
             self.import_preview_button = self.action('Sample import preview', self.show_import_preview)
             self.box.addWidget(row(self.import_preview_button))

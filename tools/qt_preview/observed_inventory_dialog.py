@@ -10,21 +10,31 @@ from saved_inventory_view import linked_snapshots
 
 
 class ObservedInventoryDialog(QDialog):
-    def __init__(self,host):
+    def __init__(self,host,*,embedded=False):
         super().__init__(host);self.host=host;self.ledger={}
+        self.embedded=embedded
+        if embedded:self.setWindowFlags(Qt.WindowType.Widget)
         self.setWindowTitle('Saved addon inventory');self.resize(900,650);box=QVBoxLayout(self)
         box.addWidget(label('Saved Bags & Bank · Read-only. These snapshots do not change manual plans or enable automatic count replacement.'))
         self.character=QComboBox();box.addWidget(self.character)
         for p in host.data.saved_profiles:self.character.addItem(p.name,p.id)
         self.character.setCurrentIndex(self.character.findData(host.data.active))
+        self.character.setVisible(not embedded)
         self.locations=Table(['Location','Saved state','Captured (local time)'],self.select,height=120);box.addWidget(self.locations)
+        if embedded:self.locations.setMaximumHeight(130)
         self.notice=label('');self.notice.setTextFormat(Qt.TextFormat.PlainText);box.addWidget(self.notice)
-        self.items=Table(['Item','Quantity','Item ID'],height=300);box.addWidget(self.items)
+        self.items=Table(['Item','Quantity','Item ID'],height=300);box.addWidget(self.items,1)
         box.addWidget(host.button('Refresh saved observations',self.refresh))
-        box.addWidget(host.button('Close',self.accept));self.character.currentIndexChanged.connect(self.refresh)
+        if not embedded:box.addWidget(host.button('Close',self.accept))
+        self.character.currentIndexChanged.connect(self.refresh)
         host.style_table(self.locations);host.style_table(self.items);host.wire_nested_scrolling(self);self.refresh()
 
     def refresh(self):
+        if self.embedded:
+            self.character.blockSignals(True);self.character.clear()
+            for p in self.host.data.saved_profiles:self.character.addItem(p.name,p.id)
+            self.character.setCurrentIndex(self.character.findData(self.host.data.active))
+            self.character.blockSignals(False)
         self.items.rows([])
         profile=self.character.currentData()
         try:
