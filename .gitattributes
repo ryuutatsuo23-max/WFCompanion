@@ -3,3 +3,5 @@ tools/offline_preview/theme_art/public_fonts/* -text -diff
 
 /addons/WFCore/** -text
 /addons/WFStorage/** -text
+
+/addons/WFProfessions/** -text

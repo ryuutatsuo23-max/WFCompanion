@@ -77,7 +77,8 @@ def verify(base, bundle, compiler, branding):
             assert not obsolete.exists(), 'Obsolete bundled README survived upgrade'
             actual = digest_tree(app)
             assert all(actual.get(path) == digest for path, digest in expected.items())
-            package_metadata(app/'_internal/payload/addons', ['WFCore', 'WFStorage'])
+            packages=json.loads((app/'_internal/payload/addon_packages.json').read_text(encoding='utf-8'))['packages']
+            package_metadata(app/'_internal/payload/addons', list(packages))
             assert digest_tree(protected) == before
             assert marker.read_text() == 'Unrelated file retained'
         return dict(upgrade_from=bundle_version(base), upgrade_to=bundle_version(bundle), reproduced_old_manifest_failure=True,
