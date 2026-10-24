@@ -11,7 +11,7 @@ class AddonTests(unittest.TestCase):
     def test_core_compass_allowlist_and_malformed_icon_rejection(self):
         from install_addons import package_files
         with tempfile.TemporaryDirectory() as tmp:
-            root=Path(tmp);folder=root/'WFCore';branding=folder/'branding';branding.mkdir(parents=True)
+            root=Path(tmp).resolve();folder=root/'WFCore';branding=folder/'branding';branding.mkdir(parents=True)
             (folder/'WFCore.toc').write_text('## Version: 0.7.0\n')
             icon=branding/'wfcompanion-icon.tga'
             raw=bytes((0,0,2,0,0,0,0,0,0,0,0,0,128,0,128,0,32,8))+bytes(128*128*4)
