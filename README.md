@@ -16,7 +16,7 @@ Requires Windows 10 (build 19041 or newer) or Windows 11, 64-bit. No Python or d
 
 Open **Page → Addons**, choose your game folder, and install the addons you want:
 
-- **Forever Core** — shared saved character details; required by the other addons.
+- **Forever Core** — shared character details and WF minimap launcher; required by the other addons.
 - **Forever Storage** — bags and bank in game.
 - **Forever Professions** — saved professions and recipes in game. Companion import is not available yet.
 
@@ -31,6 +31,12 @@ Open **Inventory & Bank → Saved Bags & Bank** to browse items. Use **All / Bag
 These are saved snapshots: `/reload` or normal logout lets WoW write new data. The companion refreshes connected saved inventory while the page is open. An unrecorded bank stays unknown. Manual inventory and plans remain separate.
 
 If your save moves, use **Locate moved save** in Settings. The reconnect preview checks the character identities and keeps your existing profiles and plans. Cancel leaves things unchanged.
+
+## Plan your crafting
+
+In **Crafting → Shopping list**, select a material and choose **Find saved material** to look through your characters' saved items. These observations do not replace your manual planning counts.
+
+In **Queue**, **Record one crafted** previews the progress change before you confirm it. **Undo last recorded craft** is available for the latest recording in that session. Use **Save plan** to keep progress; unfinished editor fields stay separate.
 
 ## Back up your companion
 

@@ -70,6 +70,10 @@ local function dragMinimap()
 end
 function ns.RefreshMinimapButton()
     if not ns.db then return end
+    if type(WFCore.RegisterLauncher)=="function" and WFCore.RegisterLauncher("storage","Forever Storage",ns.LaunchStorage,"Interface\\AddOns\\WFStorage\\branding\\forever-storage-icon") then
+        if minimapButton then minimapButton:Hide() end
+        return
+    end
     if not minimapButton then
         local map=Minimap or (MinimapCluster and MinimapCluster.MinimapContainer and MinimapCluster.MinimapContainer.Minimap)
         if not map or type(map.GetCenter)~="function" then return end

@@ -20,6 +20,16 @@ Core, Storage and Professions are installed from the pinned companion bundle. Ex
 
 Old combined-Core installations require a separately reviewed migration and are blocked before addon files change. WoW may stay open during copying; reload afterward, or restart fully for new addons/assets. The companion does not reload or exit the game for you. Companion updates do not automatically install bundled addons.
 
+## Crafting and shared launcher
+
+Saved-material lookup matches exact item IDs when available, otherwise exact trimmed names without case sensitivity. Distinct IDs and characters remain separate. Missing or partial observations are not treated as zero. Recording a craft changes applied queue progress and marks its manual ingredient counts for rechecking; it does not deduct items or change saved snapshots.
+
+Undo restores the prior applied plan and recheck state for the current character and session. It survives Save within that session, but another plan or manual-inventory change invalidates it. Save keeps applied progress without applying unfinished editor drafts. Reopening retains saved progress, not the session Undo action.
+
+The shared launcher uses Core's companion compass and each installed module's icon. Update Core, Storage and Professions together through Addons to use the bundled integration. Shared visibility and position are separate from preserved standalone preferences. Older Core uses the standalone fallback. `/wfcore` opens the tray, `/wfcore welcome` opens welcome, and `/wfcore minimap show` restores a hidden launcher.
+
+All new shared-launcher behavior is verified offline only. Placement, dragging, combat, minimap replacements, shared visibility persistence and module regressions still require live testing on the release client.
+
 ## Updates and recovery
 
 Automatic stable-release checks use GitHub; manual checks are available in Settings. Downloads show progress and are verified against SHA-256 checksums. The installer is unsigned: checksums establish file integrity, not publisher identity. See the [signing policy](tools/distribution/public_notices/CODE_SIGNING.md).

@@ -64,10 +64,15 @@ end)
 -- Use a Core-specific registry key: Storage retains WFCORE as a legacy handler.
 -- The public command stays /wfcore; never replace Storage commands or bindings.
 SLASH_WFCOREWELCOME1="/wfcore"
+if ns.RegisterLauncher then ns.RegisterLauncher("core","Forever Core",show) end
 SlashCmdList.WFCOREWELCOME=function(message)
     if type(message)=="string" and message:lower():match("^%s*welcome%s*$") then
         show()
-    elseif DEFAULT_CHAT_FRAME then
-        DEFAULT_CHAT_FRAME:AddMessage("Forever Core: /wfcore welcome shows the saved-data welcome.")
+    elseif type(message)=="string" and message:lower():match("^%s*minimap%s+show%s*$") then
+        ns.SetCoreMinimapVisible(true)
+    elseif type(message)=="string" and message:lower():match("^%s*minimap%s+hide%s*$") then
+        ns.SetCoreMinimapVisible(false)
+    elseif ns.ToggleLauncher then
+        ns.ToggleLauncher()
     end
 end

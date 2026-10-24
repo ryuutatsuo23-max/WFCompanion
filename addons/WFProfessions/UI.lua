@@ -284,8 +284,8 @@ local _,displayLabel=button("Display",12,378,300,function()
     openMenu("presentation",500,168,entries,function(value) ns.SetPresentationMode(value) end,true)
 end,"Custom shows cached data alone. Open profession temporarily shows the native page for manual Refresh. Native UI keeps the addon loaded.",settingsPanel)
 local _,minimapLabel=button("Minimap",12,418,300,function()
-    if ns.SetMinimapVisible then ns.SetMinimapVisible(settings().showMinimapButton==false) end
-end,"Show the launcher; /wfprofessions minimap show restores it.",settingsPanel)
+    if ns.SetMinimapVisible then ns.SetMinimapVisible(not ns.IsMinimapVisible()) end
+end,"Show the shared Forever launcher when available; /wfprofessions minimap show restores it.",settingsPanel)
 local menu=CreateFrame("Frame",nil,UIParent,"BackdropTemplate")
 menu:SetClampedToScreen(true)
 menu:SetSize(500,324); menu:EnableMouse(true); menu:SetFrameStrata("TOOLTIP"); menu:Hide()
@@ -414,7 +414,9 @@ function ns.RefreshUI()
         slider.sliderAccent=theme.accent
     end
     themeLabel:SetText("Theme: "..name.." v")
-    minimapLabel:SetText("Minimap button: "..(s.showMinimapButton==false and "Hidden" or "Shown"))
+    local minimapVisible=s.showMinimapButton~=false
+    if ns.IsMinimapVisible then minimapVisible=ns.IsMinimapVisible() end
+    minimapLabel:SetText((ns.core.SetCoreMinimapVisible and "Shared minimap: " or "Minimap button: ")..(minimapVisible and "Shown" or "Hidden"))
     displayLabel:SetText("Display: "..ns.PresentationMode().." v")
     for _,panel in ipairs({settingsPanel,menu}) do
         panel:SetBackdrop({bgFile="Interface\\Buttons\\WHITE8X8",edgeFile=name=="Classic" and "Interface\\DialogFrame\\UI-DialogBox-Border" or "Interface\\Buttons\\WHITE8X8",edgeSize=name=="Classic" and 20 or 1})

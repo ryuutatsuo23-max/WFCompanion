@@ -6,30 +6,33 @@
   "packages": {
     "WFCore": {
       "version": "0.7.0",
-      "source_commit": "2fd8aa2a14616197d235c7a31a05f7902704f039",
-      "archive_sha256": "f031915e838b8cf1b62ba8c714b3e417f2065c4a01a35535336eda1b7efea348",
+      "source_commit": "b92657be71e0e2752fd2945ab5323dcbd77524a7",
+      "archive_sha256": "e3a5f619348e34c40cac2bfbc032eda09b5a5de54cbf323981cd58e0be6895e1",
       "files": {
         "Core.lua": "bc1df6b852364140a31b31f0993538858902595eef1adb07b7bf72b53f6add76",
-        "Welcome.lua": "db05ffef9651371c520d305c66a8b0df8133e7c5b6c96da1d9fac6323aca14fc",
-        "WFCore.toc": "bbb64b3651a8aa9bbd66ff8ef48b629c975257e60805a5298e23e68266e6eb5d",
-        "README.md": "610bd8e7f128ac6871d0391ebddfcf0b9a4ae1f4954783a7f3e550ee2d13be9b",
-        "LICENSE": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+        "Launcher.lua": "7648b29fa6052de291c8aefb9cd8d70442f2ed5c215aaec80a786f19562e2178",
+        "Welcome.lua": "ba4f6f9c3bfa77c032e4c8b161fa8f6bd07aaa45d3698d64249a7ac558068470",
+        "WFCore.toc": "942552a8d4e369f39a9183d441d71c94912291ba81a78c61f86d39bfbc463b9b",
+        "README.md": "bd2bf19e7abb9c44a492950c5dcd2e2e226d4a52cf5d104fa26c5ea95b07a0d0",
+        "LICENSE": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986",
+        "ASSET_NOTICES.md": "57cbfe70917d6149c35974598e4366bb689671d4d5e959c22d03c5219a6c3258",
+        "branding/wfcompanion-icon.tga": "ef2df704bcceb06dc7489bdf1481ce8444aca6dfde5ad2b1acdb3fc2f9250f0a"
       }
     },
     "WFStorage": {
       "version": "0.7.0",
-      "source_commit": "b523e37c99d592830cc807214a4c1580006d59b7",
-      "archive_sha256": "8b9f750e4aca98a984bd05e58cf7c4558b0abf30765c8860452d3c754c529e64",
+      "source_commit": "b92657be71e0e2752fd2945ab5323dcbd77524a7",
+      "archive_sha256": "68ac95dc40a1c034824de54d4dfceade242cae12d6af034e13e49b735692e406",
       "files": {
         "WFStorage.toc": "3434758d9ffdac8ceeed09e07dd0969a1f30479232cba1c966ffb63347506de3",
         "Bootstrap.lua": "37d316020482a3bfb28b80325494a71c379082f3ebb5874e7a800ec863b91138",
         "Bags.lua": "7e541f1f0715b511739c5f17424b479316702c1f88571c319e0cc73f15a2e567",
-        "Appearance.lua": "1b9892838f75bb8eee49bedf847c0f8063202711a3e1b33aed70cb6e3dc1a44b",
+        "Appearance.lua": "db331e240e5b5b20e67ce02b179dad95b104459d8b3af15394e7d85cc3c86ac7",
         "Interaction.lua": "2626d34e02800d1bf2eb7810563e0742296ee8c4a39cdc25a10c14b6c9dc2285",
         "BagSlots.lua": "cabe0a756a27e3e3b0c5f52cccf709b3d085893c38be016a58762d4a2f46f532",
         "InventoryUI.lua": "6d46a71a3931956f1a3d85a5f260b22ab3f55b0a774a811756e152419f4226fd",
         "BankUI.lua": "94131db21d0f3e53efa1f5c87c3c7dda187297bf1c814efb0f8fe537c107d840",
-        "Bindings.lua": "9033979d83db601637788709e8f8d456938b690667ecfd82e6e912d3697c34d3",
+        "Bindings.lua": "e809f10afbaea39f65183e0925eee29339c670298e1eb9db8053fc87cbbef28d",
         "Vendor.lua": "94ca3a7d2de75ccab53b8fcf7c4fc71402a354b10601ae187ff032048fe824cd",
         "GuildVault.lua": "602defe646ebdcf02333cb08a4a17a55e9a6b640dd99bcce5ded0bffd95856ca",
         "LICENSE": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986",
@@ -43,8 +46,8 @@
     },
     "WFProfessions": {
       "version": "0.1.4",
-      "source_commit": "76f9aa669ca05456693e7de24de4889dc1506a99",
-      "archive_sha256": "cc56676551012479fcb698730cf45c881d0944aaed7193fd54f530005096fa7f",
+      "source_commit": "b92657be71e0e2752fd2945ab5323dcbd77524a7",
+      "archive_sha256": "7af726e72e1548d027a3e7a0535e3d8b7781b250eacba0312cf76f415c22ea04",
       "files": {
         "WFProfessions.toc": "a8f3aeeaa9295a6b9912486c3e0adeb187767a30fc95dcf1365fda1f7756c5d1",
         "Model.lua": "3873c376934b9c0621d91faa4cb1d129a2af54c34215fbeb4d6f8a24087c7e1b",
@@ -53,15 +56,15 @@
         "ItemNames.lua": "6baefb63f65da0ab6c55038dcb9933ba0df572ce70621ea8210583177d9900a2",
         "OpenProfession.lua": "071dd7458b43d7bcdff99d1ffe89eb7d3892f0089d9ca15f5f2f848a70c248d6",
         "Presentation.lua": "8034e8ec116c838ec8a207fba3859d458e15bbbd135bcfbc7df29d6279ce4a39",
-        "UI.lua": "ce294b3522f9bca1939202e0ba22349d0436522a413e877520e87f7ac09b52d2",
-        "Launcher.lua": "5c3f80dab857bf65ece2ffefbe861aa38407af6d74fcc49ddb0f6f7512170de3",
+        "UI.lua": "caf300948d95378bf3fd1c837b3a51396792a09983e64fb8bd17d632a7b387e9",
+        "Launcher.lua": "b6badce9ce53c436d77949b8cfcdc150937cf748a21ab1df817a032fbc6b3d2d",
         "Probe.lua": "b7361cc8e69b1525fe567bb1b379feb3a3a30c266fa538d9fb5c6138504f8f7f",
         "README.md": "ddd85ce0c261f0316aae4225f3d59296cdc2dd1fd9021ecf5237d9c4fc4b416a",
         "LICENSE": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986",
         "branding/README.md": "f4e48c18ce3cee24cbbe167aeab7d9b912295b2259a8b4f9279dade295474b49",
         "branding/forever-professions-logo.png": "ae290067bdb06cf0e36bcdd5ce361d3e61ab08eb49013c7e4bd8e659c74254b5",
         "branding/forever-professions-icon.tga": "910b2ca72917e6679fd5c1c6b2bc80c7f188919ed52cee0c9f293a6f3b4c68f5",
-        "PACKAGE_SHA256.json": "4ba94cbc3fc04985e9d4347f25383d41fe6883252bb38245680aad051c8ce169"
+        "PACKAGE_SHA256.json": "5cc9d0ee6fc8f7fbb072ec0a72eccb65876f3609c3e832a6f79ce214c91cd44c"
       }
     }
   },
@@ -73,6 +76,7 @@
     "Core full inventory/history preservation is not established.",
     "Professions Custom/Native lifecycle and release-client compatibility remain pending live.",
     "Installing Forever Professions does not import its saved observations into the companion.",
-    "Professions distinct default minimap position is validated offline; live positioning remains pending."
+    "Professions distinct default minimap position is validated offline; live positioning remains pending.",
+    "Shared launcher placement, dragging, visibility/recovery, combat, minimap replacements and module regressions remain pending live; offline checks only."
   ]
 }

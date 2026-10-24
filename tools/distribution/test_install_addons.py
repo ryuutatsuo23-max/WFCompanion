@@ -8,6 +8,21 @@ from install_addons import install
 
 
 class AddonTests(unittest.TestCase):
+    def test_core_compass_allowlist_and_malformed_icon_rejection(self):
+        from install_addons import package_files
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);folder=root/'WFCore';branding=folder/'branding';branding.mkdir(parents=True)
+            (folder/'WFCore.toc').write_text('## Version: 0.7.0\n')
+            icon=branding/'wfcompanion-icon.tga'
+            raw=bytes((0,0,2,0,0,0,0,0,0,0,0,0,128,0,128,0,32,8))+bytes(128*128*4)
+            icon.write_bytes(raw)
+            self.assertIn(icon,package_files(root,'WFCore'))
+            for bad in (raw[:-1],b'bad',raw[:16]+b'\x18'+raw[17:]):
+                icon.write_bytes(bad)
+                with self.assertRaisesRegex(ValueError,'TGA'):package_files(root,'WFCore')
+            icon.write_bytes(raw);icon.rename(branding/'other-icon.tga')
+            with self.assertRaisesRegex(ValueError,'Unexpected'):package_files(root,'WFCore')
+
     def test_pins_receipts_tampering_and_legacy_guard(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp).resolve();client=root/'_classic_beta_';client.mkdir();(client/'WowB.exe').touch()

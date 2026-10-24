@@ -70,19 +70,19 @@ def package_files(payload,addon):
     for source in sorted(folder.iterdir()):
         safe_target(source,payload)
         if source.is_dir():
-            if addon not in ('WFStorage','WFProfessions') or source.name!='branding':raise ValueError('Unexpected addon payload directory.')
+            if addon not in ('WFCore','WFStorage','WFProfessions') or source.name!='branding':raise ValueError('Unexpected addon payload directory.')
             for asset in source.iterdir():
                 safe_target(asset,payload)
                 if not asset.is_file():raise ValueError('Unexpected addon branding file.')
                 raw=asset.read_bytes()
-                prefix='forever-storage' if addon=='WFStorage' else 'forever-professions'
+                prefix={'WFCore':'wfcompanion','WFStorage':'forever-storage','WFProfessions':'forever-professions'}[addon]
                 if addon=='WFProfessions' and asset.name=='README.md':
                     raw.decode('utf-8-sig')
-                elif asset.name==prefix+'-logo.png':
+                elif addon!='WFCore' and asset.name==prefix+'-logo.png':
                     if not raw.startswith(b'\x89PNG\r\n\x1a\n'):raise ValueError('Invalid addon branding image.')
                 elif asset.name==prefix+'-icon.tga':
                     # Reviewed uncompressed RGBA icon, optional standard footer.
-                    dimension=128 if addon=='WFStorage' else 64
+                    dimension=64 if addon=='WFProfessions' else 128
                     header=bytes((0,0,2,0,0,0,0,0,0,0,0,0,dimension,0,dimension,0,32,8))
                     size=18+dimension*dimension*4
                     if (raw[:18]!=header or len(raw) not in (size,size+26)

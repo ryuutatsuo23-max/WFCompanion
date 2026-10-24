@@ -31,6 +31,10 @@ local function drag()
 end
 function ns.RefreshMinimapButton()
     if not ns.store then return end
+    if type(ns.core.RegisterLauncher)=="function" and ns.core.RegisterLauncher("professions","Forever Professions",ns.LaunchProfessions,"Interface\\AddOns\\WFProfessions\\branding\\forever-professions-icon") then
+        if launcher then launcher:Hide() end
+        return
+    end
     if not launcher then
         local map=Minimap or (MinimapCluster and MinimapCluster.MinimapContainer and MinimapCluster.MinimapContainer.Minimap)
         if not map or type(map.GetCenter)~="function" then return end
@@ -64,7 +68,16 @@ function ns.RefreshMinimapButton()
 end
 function ns.SetMinimapVisible(visible)
     if not ns.store or type(visible)~="boolean" then return end
-    ns.store.settings.showMinimapButton=visible
+    if type(ns.core.SetCoreMinimapVisible)=="function" then ns.core.SetCoreMinimapVisible(visible)
+    else ns.store.settings.showMinimapButton=visible end
     ns.RefreshMinimapButton(); ns.Refresh()
+end
+function ns.IsMinimapVisible()
+    if type(ns.core.SetCoreMinimapVisible)=="function" then
+        local db=ns.core.db
+        local settings=type(db)=="table" and db.settings
+        return not (type(settings)=="table" and settings.coreMinimapHidden==true)
+    end
+    return not (ns.store and ns.store.settings.showMinimapButton==false)
 end
 ns.core.On("PLAYER_ENTERING_WORLD",ns.RefreshMinimapButton)

@@ -282,3 +282,23 @@ old combined WFCore folder and all WTF settings before replacement. Replace the
 old addon's package files, never its SavedVariables. Do not mix old combined TOCs
 with the new Storage TOC. The split is source/package-only until explicitly installed.
 See research/WFCORE_STORAGE_SPLIT_HANDOFF.md in the project for cross-chat ownership.
+# Shared Forever launcher (source candidate)
+
+Core provides one draggable **WF Companion compass** minimap button. Click it for loaded addon
+icons: Forever Core opens the welcome/help panel, Forever Storage opens bags,
+and Forever Professions opens its journal. Right-click a module entry for its
+settings. `/wfcore` also opens the menu; `/wfcore minimap show` and
+`/wfcore minimap hide` control the shared button.
+
+Storage and Professions source versions with launcher registration suppress their
+individual buttons. Older module versions still have their own buttons; update
+all three together after package review. Old standalone visibility/position
+preferences remain intact. Core stores only `coreMinimapHidden` and the dragged
+`coreMinimapAngle` in its existing settings. No snapshots are changed.
+
+Future modules can call `WFCore.RegisterLauncher(id, title, callback, icon)` with a
+stable unique ID. The callback receives the clicked mouse button. Registration
+is idempotent and only affects presentation; it does not start data collection.
+The Core icon reuses the original WF Companion compass; see ASSET_NOTICES.md.
+Module icons reference their installed addon textures.
+This source candidate has offline tests only; release-client checks are pending.

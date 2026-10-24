@@ -1,7 +1,7 @@
 """Manual gathering, reusable recipes, queue and combined shopping list."""
 from copy import deepcopy
 from uuid import uuid4
-from PySide6.QtWidgets import QCheckBox
+from PySide6.QtWidgets import QCheckBox,QDialog,QDialogButtonBox,QVBoxLayout
 from presentation import easy_mode,simple_requirement
 from app import row, label
 from widgets import Page,Form,Table,integer,shown
@@ -58,7 +58,8 @@ class GatheringPage(Page):
         self.dirty('Crafting')
 
     def save(self):
-        self.data.save_records('Crafting'); self.message('Gathering and crafting plan saved together.')
+        self.data.save_records('Crafting'); self.host.stock_changed()
+        self.message('Gathering and crafting plan saved together.')
 
 
 class CraftEditor(Page):
@@ -79,8 +80,14 @@ class CraftEditor(Page):
             self.enqueue_form=Form(host,[('quantity','Crafts to queue',str,'1')]); self.box.addWidget(self.enqueue_form)
             self.box.addWidget(self.action('Add selected recipe to queue',self.enqueue))
         else:
+            self.craft_history={};self.craft_messages={}
+            self.craft_status=label('');self.box.addWidget(self.craft_status)
+            self.plan_status=label('');self.box.addWidget(self.plan_status)
+            self.undo_craft_button=self.action('Undo last recorded craft',self.undo_craft)
+            self.undo_craft_button.setToolTip('Undo the last recording in this session, while the plan and manual inventory are unchanged. Save plan keeps the undo.')
             self.box.addWidget(row(self.action('Move up',lambda:self.move(-1)),self.action('Move down',lambda:self.move(1)),
                 self.action('Record one crafted',self.record),self.action('Copy selected to recipe book',self.copy_recipe)))
+            self.box.addWidget(self.undo_craft_button)
         self.box.addWidget(self.action('Save plan',self.save))
         self.box.addWidget(label('Queue entries are independent recipe copies. Recording a craft marks ingredient counts Recheck; no stock or produced items are guessed. Save plan keeps applied changes from Gathering, Recipe book and Queue.'))
         self.refresh()
@@ -103,6 +110,22 @@ class CraftEditor(Page):
         super().refresh()
         self.table.rows([(e.id,(e.name,e.profession,e.output_per_craft) if self.recipes else
             (e.name,e.quantity,e.completed,e.profession,e.output_per_craft)) for e in self.entries])
+        if not self.recipes:
+            character=self.data.active;history=self.craft_history.get(character)
+            if history and (self.data.plan!=history[1] or self.data.inventory!=history[2]):
+                del self.craft_history[character]
+                self.craft_messages[character]='Plan or manual inventory changed; the previous craft can no longer be undone.'
+            self.undo_craft_button.setEnabled(character in self.craft_history)
+            self.craft_status.setText(self.craft_messages.get(character,''))
+            self.plan_status.setText('Unsaved plan changes · Use Save plan to keep them.' if 'Crafting' in self.data.dirty else 'No unsaved plan changes.')
+
+    def undo_craft(self):
+        self.refresh()
+        history=self.craft_history.pop(self.data.active,None)
+        if history is None:raise ValueError('No unchanged recorded craft is available to undo.')
+        self.data.plans[self.data.active]=deepcopy(history[0])
+        self.craft_messages[self.data.active]='Craft recording undone · previous progress and manual-count status restored.'
+        self.dirty('Crafting')
 
     def select(self,key):
         e=next(e for e in self.entries if e.id==key)
@@ -149,7 +172,43 @@ class CraftEditor(Page):
         self.dirty('Crafting')
 
     def record(self):
-        self.data.plan.record_crafted(self.table.key(),self.data.inventory); self.dirty('Crafting')
+        goal=next((g for g in self.entries if g.id==self.table.key()),None)
+        if goal is None or goal.completed>=goal.quantity:
+            raise ValueError('Select a queue entry with crafts still remaining.')
+        character=self.data.active;original=deepcopy(self.data.plan)
+        dialog=QDialog(self.host);dialog.setWindowTitle('Preview recorded craft');dialog.setModal(True)
+        box=QVBoxLayout(dialog)
+        box.addWidget(label(goal.name))
+        box.addWidget(label(f'Completed: {goal.completed} / {goal.quantity} to {goal.completed+1} / {goal.quantity}'))
+        if goal.completed+1==goal.quantity:box.addWidget(label('This completes the queue entry.'))
+        box.addWidget(label('Manual Bags & Bank counts to recheck:'))
+        table=Table(['Material','After recording'])
+        table.rows([(str(n),(i.name,'Recheck')) for n,i in enumerate(goal.ingredients)])
+        box.addWidget(table)
+        box.addWidget(label('Unknown counts stay Unknown. No quantities or produced items are guessed.\nSaved inventory snapshots stay unchanged.\nUnapplied form edits are kept; this records the selected queue entry. Use Save plan to keep the recorded progress.'))
+        buttons=QDialogButtonBox(QDialogButtonBox.StandardButton.Cancel)
+        confirm=buttons.addButton('Record one crafted',QDialogButtonBox.ButtonRole.AcceptRole)
+        buttons.button(QDialogButtonBox.StandardButton.Cancel).setDefault(True)
+        buttons.rejected.connect(dialog.reject);box.addWidget(buttons)
+        def apply_record():
+            # A delayed confirmation must never record against a changed character or plan.
+            if self.data.active!=character or self.data.plan!=original:
+                confirm.setEnabled(False)
+                box.insertWidget(0,label('The plan changed. Cancel and open a fresh preview.'))
+                return
+            try:
+                updated=deepcopy(original)
+                updated.record_crafted(goal.id,self.data.inventory)
+            except ValueError as exc:
+                confirm.setEnabled(False);box.insertWidget(0,label(str(exc)));return
+            self.data.plans[character]=updated
+            self.craft_history[character]=(original,deepcopy(updated),deepcopy(self.data.inventory))
+            self.craft_messages[character]=f'Craft recorded — {goal.completed+1}/{goal.quantity}'+(' complete.' if goal.completed+1==goal.quantity else ' completed.')
+            self.dirty('Crafting');dialog.accept()
+        confirm.clicked.connect(apply_record)
+        dialog.resize(640,540)
+        self.record_dialog=dialog;self.record_confirm=confirm
+        dialog.open()
 
     def copy_recipe(self):
         e=next((e for e in self.entries if e.id==self.table.key()),None)
@@ -159,4 +218,5 @@ class CraftEditor(Page):
         plan.validate(); self.data.plans[self.data.active]=plan; self.dirty('Crafting')
 
     def save(self):
-        self.data.save_records('Crafting'); self.message('Applied recipes, queue and gathering goals saved. Other unfinished forms unchanged.')
+        self.data.save_records('Crafting'); self.host.stock_changed()
+        self.message('Applied recipes, queue and gathering goals saved. Other unfinished forms unchanged.')

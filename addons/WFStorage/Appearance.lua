@@ -8,7 +8,7 @@ ns.ViewChoices = {
 }
 local defaults={uiMode="Storage",view="Grid",theme="Classic",opacity=0.95,iconSize=40,columns=8,
     category="All",order="Category",windowScale=1,fontSize=14}
-ns.OptionHelp={showMinimapButton="Show the draggable Storage minimap button. /wf settings can restore it.",uiMode="Use the original WoW windows while Storage keeps recording companion observations. /wf settings switches back.",showBagSlots="Show equipment slots for bags, built-in storage and locked bank expansions.",category="Filter this inventory window by item category. Missing metadata stays Unknown.",
+ns.OptionHelp={showMinimapButton="Show the shared Forever minimap button when available, or the Storage button with older Core. /wfcore minimap show restores the shared button.",uiMode="Use the original WoW windows while Storage keeps recording companion observations. /wf settings switches back.",showBagSlots="Show equipment slots for bags, built-in storage and locked bank expansions.",category="Filter this inventory window by item category. Missing metadata stays Unknown.",
     favoritesFirst="Show favorites first within the selected display order. Never moves items.",view="Choose an icon grid or a named item list.",theme="Choose the theme for all Storage windows.",
     opacity="Change the background opacity; item icons stay opaque.",iconSize="Size of inventory grid icons.",
     columns="Number of icons in each grid row.",fontSize="Size of item labels and counts.",
@@ -49,7 +49,9 @@ function ns.SetViewOption(key,value,target)
     if key=="theme" or key=="dimPoor" or key=="uiMode" or key=="showMinimapButton" then target="main" end
     if target=="bank" and type(ns.db.settings.storageBankView)~="table" then return end
     local saved=target=="guild" and ns.GuildViewSettings() or target=="bank" and bank or ns.db.settings
-    saved[key]=value
+    if key=="showMinimapButton" and type(WFCore.SetCoreMinimapVisible)=="function" then
+        WFCore.SetCoreMinimapVisible(value)
+    else saved[key]=value end
     if key=="showMinimapButton" and ns.RefreshMinimapButton then ns.RefreshMinimapButton() end
     if key=="uiMode" and ns.ApplyUIMode then ns.ApplyUIMode() end
     if key=="bindB" and ns.UpdateInventoryBinding then ns.UpdateInventoryBinding() end
@@ -104,6 +106,7 @@ function ns.ViewOptions(target)
     -- kept for preservation, but no longer determine these two shared options.
     local main=ns.db and ns.db.settings or {}
     result.showMinimapButton=main.showMinimapButton~=false
+    if type(WFCore.SetCoreMinimapVisible)=="function" then result.showMinimapButton=main.coreMinimapHidden~=true end
     result.uiMode=main.uiMode=="Native" and "Native" or "Storage"
     result.theme=defaults.theme
     for _,value in ipairs(ns.ViewChoices.theme) do if main.theme==value then result.theme=value end end

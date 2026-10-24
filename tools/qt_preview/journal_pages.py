@@ -2,7 +2,7 @@
 from copy import deepcopy
 from datetime import date
 from PySide6.QtWidgets import QCheckBox
-from presentation import easy_mode,simple_requirement
+from presentation import easy_mode
 from app import row, label
 from widgets import Page, Form, Table
 from local_journal import coin_price, money, estimate
@@ -87,9 +87,18 @@ class ShoppingPage(Page):
         self.box.addWidget(self.show_details)
         self.form=Form(host,[('market','Price estimate market',str,'My market')]); self.box.addWidget(self.form)
         self.total=label(''); self.box.addWidget(self.total)
-        self.table=Table(['Material','Needed','Bags','Bank','Owned','Remaining','Source','Unit price','Cost','Price date'],height=300)
+        self.count_help=label('Needed: unfinished crafts + gathering extras. Manually recorded: this character’s Bags + Bank. Still needed: the difference. Missing or stale counts stay Unknown.')
+        self.count_help.setWordWrap(True);self.box.addWidget(self.count_help)
+        self.saved_help=label('Saved Bags & Bank is a separate lookup across characters. It does not change these planning counts.')
+        self.saved_help.setWordWrap(True);self.box.addWidget(self.saved_help)
+        self.saved_material_button=self.action('Find saved material',self.open_saved_material)
+        self.saved_material_button.setToolTip('Select a material below to view saved Bags & Bank across characters. Manual counts stay unchanged.')
+        self.box.addWidget(self.saved_material_button)
+        self.table=Table(['Material','Needed','Manual bags','Manual bank','Manually recorded','Still needed','Source','Unit price','Cost','Price date'],height=300)
         self.box.addWidget(self.table)
         self.box.addWidget(self.action('Enter price for selected material',self.enter_price))
+        self.saved_material_button.setEnabled(False)
+        self.table.itemSelectionChanged.connect(lambda:self.saved_material_button.setEnabled(self.table.key() is not None))
         self.box.addWidget(label('Gathering extras and all unfinished queue entries share one list. Missing or stale stock remains Unknown. Missing prices remain Unknown. No auction purchases or game interaction occur.'))
         self.form.changed(self.market_changed); self.refresh()
 
@@ -101,14 +110,16 @@ class ShoppingPage(Page):
     def refresh(self):
         super().refresh()
         simple=easy_mode(self.host) and not self.show_details.isChecked()
-        self.table.setHorizontalHeaderLabels(['Material','Needed','Bags','Bank','Have','Still needed','Source','Unit price','Cost','Price date'] if simple else ['Material','Needed','Bags','Bank','Owned','Remaining','Source','Unit price','Cost','Price date'])
+        self.table.setHorizontalHeaderLabels(['Material','Needed','Manual bags','Manual bank','Manually recorded','Still needed','Source','Unit price','Cost','Price date'])
         for col in (2,3,7,8,9):self.table.setColumnHidden(col,simple)
         if self.data.inventory_store.error or self.data.plans_store.error or self.data.prices.error:
-            self.estimates=[]; self.table.rows([]); self.total.setText('Unknown · a saved stock, plan or price file could not be read. Original file preserved.'); return
-        from ownership import requirements
-        rows=requirements(self.data)
+            self.estimates=[]; self.table.rows([]);self.saved_material_button.setEnabled(False); self.total.setText('Unknown · a saved stock, plan or price file could not be read. Original file preserved.'); return
+        # Shopping arithmetic uses manual records only. Saved observations belong
+        # to the separate material lookup, never to these planning totals.
+        rows=self.data.plan.requirements(self.data.inventory)
         self.estimates=estimate(rows,self.data.prices.data['characters'].get(self.data.active,[]),self.form.values()['market'])
-        self.table.rows([(r.key,(r.name,r.needed,r.bags,r.bank,*(simple_requirement(r) if simple else (r.owned,r.remaining)),r.source,money(p['copper'] if p else None),money(cost),p['date'] if p else 'Unknown')) for r,p,cost in self.estimates])
+        self.table.rows([(r.key,(r.name,r.needed,r.bags,r.bank,r.owned,r.remaining,r.source,money(p['copper'] if p else None),money(cost),p['date'] if p else 'Unknown')) for r,p,cost in self.estimates])
+        self.saved_material_button.setEnabled(self.table.key() is not None)
         known=sum(cost for _,_,cost in self.estimates if cost is not None)
         unknown=sum(cost is None for _,_,cost in self.estimates)
         self.total.setText(('Estimated cost: Not enough saved information' if unknown else f'Estimated cost from saved prices: {money(known)}') if simple else f'Total: {"Unknown" if unknown else money(known)} · known subtotal: {money(known)} · {unknown} uncertain lines')
@@ -119,6 +130,15 @@ class ShoppingPage(Page):
         journal=self.host.journal; journal.new(); journal.reference=result.catalogue_ref
         journal.form.load(dict(name=result.name,market=self.form.values()['market'])); journal.link_label()
         self.host.show_page('Auction Journal')
+
+
+    def open_saved_material(self):
+        result=next((r for r,_,_ in self.estimates if r.key==self.table.key()),None)
+        if result is None:raise ValueError('Select a material in the shopping list.')
+        from observed_inventory_dialog import ObservedInventoryDialog
+        item_id=result.catalogue_ref.item_id if result.catalogue_ref else None
+        self.saved_material_dialog=ObservedInventoryDialog(self.host,material=(result.name,item_id))
+        self.saved_material_dialog.setModal(True);self.saved_material_dialog.open()
 
 
 class SupportPage(Page):
