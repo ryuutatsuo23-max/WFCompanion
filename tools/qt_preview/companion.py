@@ -15,12 +15,13 @@ import tempfile
 import time
 import wave
 from PySide6.QtCore import Qt, QTimer, QUrl, QEvent, QPoint
-from PySide6.QtGui import QFont
+from PySide6.QtGui import QFont, QShortcut, QKeySequence
 from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QScrollArea, QStackedWidget, QLabel, QProgressBar, QMessageBox, QAbstractScrollArea, QCheckBox, QComboBox
+from controls import ComboBox as QComboBox
 from app import Preview, Panel, Title, row, field, label
 from data import Data, STATE, import_legacy
 from fonts import Fonts
-from settings_page import SettingsMixin, TABS
+from settings_page import SettingsMixin, TABS, DEFAULT_HIDDEN_TABS, page_title, page_key
 from widgets import Form, Table, Page
 from display_settings import DEFAULT
 from model import ReminderEngine, Observation, PartyReading
@@ -41,17 +42,7 @@ from window_placement import DEFAULT as WINDOW_DEFAULT, validate as validate_win
 
 
 class PagePicker(QComboBox):
-    """Keep navigation below its control instead of centering the selected row."""
-    def showPopup(self):
-        super().showPopup()
-        popup = self.view().window()
-        anchor = self.mapToGlobal(QPoint(0, self.height()))
-        area = self.screen().availableGeometry()
-        height = min(popup.height(), area.height())
-        width = min(popup.width(), area.width())
-        x = max(area.left(), min(anchor.x(), area.right() - width + 1))
-        y = max(area.top(), min(anchor.y(), area.bottom() - height + 1))
-        popup.setGeometry(x, y, width, height)
+    """Navigation uses the same dropdown behavior as all other choices."""
 
 
 class Companion(SettingsMixin, Preview):
@@ -61,6 +52,7 @@ class Companion(SettingsMixin, Preview):
         self.readings={}; self.sim_drafts={}; self.activity=[]; self.decision_codes={}; self.last_sound=-100
         self.ready=False; self.testing=False; self.audio=None; self.audio_temp=None
         self.wishlist_return=None  # Session-only navigation; never a draft/save snapshot.
+        self.page_history=[]
         super().__init__()
         self.setWindowTitle('WF Companion')
         self.ready=True
@@ -77,7 +69,7 @@ class Companion(SettingsMixin, Preview):
         errors=self.data.errors()
         self.banner.setText('Saved-file errors: '+' | '.join(errors) if errors else '')
         self.banner.setVisible(bool(errors))
-        self.log('Session','Started','Offline. No game, screen, network or input backend.')
+        self.log('Session','Started','Companion opened. Viewing saved information.')
         from saved_character_connection import SavedCharacterConnection
         self.saved_character_connection=SavedCharacterConnection(self)
         self.saved_character_connection.start()
@@ -93,7 +85,14 @@ class Companion(SettingsMixin, Preview):
         for key,implicit in (('artwork_mode','Header'),('panel_transparency',0)):
             if key not in self.data.display.data: self.settings[key]=implicit
         self.settings.update(version=5,overview_visible='Overview' not in self.settings['hidden'])
-        self.saved=deepcopy(self.settings); self.qt_settings=deepcopy(self.data.qt.data); self.saved_qt=deepcopy(self.qt_settings)
+        self.qt_settings=deepcopy(self.data.qt.data)
+        # Apply the simpler workspace once to fresh and pre-update preferences.
+        # Save settings persists this marker so later opt-ins survive reopening.
+        if self.qt_settings.get('workspace_defaults',0)<2:
+            hidden_defaults=DEFAULT_HIDDEN_TABS if self.qt_settings.get('workspace_defaults',0)<1 else ('Gathering','Gear wishlist','Auction Journal')
+            self.settings['hidden'] += [name for name in hidden_defaults if name not in self.settings['hidden']]
+            self.qt_settings['workspace_defaults']=2
+        self.saved=deepcopy(self.settings); self.saved_qt=deepcopy(self.qt_settings)
         layout=QVBoxLayout(self); layout.setContentsMargins(16,12,16,12)
         layout.addWidget(Title(self,'WF Companion'))
         self.banner=label('Offline companion'); layout.addWidget(self.banner)
@@ -104,15 +103,19 @@ class Companion(SettingsMixin, Preview):
         header.addWidget(field('Character',self.character))
         header.addStretch(1)
         self.navigation=row();header.addWidget(self.navigation,0,Qt.AlignmentFlag.AlignTop)
+        self.back_button=self.button('Back',self.go_back);self.back_button.setEnabled(False)
+        self.back_shortcut=QShortcut(QKeySequence('Alt+Left'),self);self.back_shortcut.activated.connect(self.go_back)
         self.page_picker=PagePicker();self.page_picker.setMinimumWidth(220)
         self.page_picker.setMaximumWidth(440)
         self.page_picker.currentTextChanged.connect(self.page_picker.setToolTip)
-        self.page_picker.currentTextChanged.connect(self.show_page)
-        self.navigation.layout().addWidget(field('Page',self.page_picker))
+        self.page_picker.currentTextChanged.connect(self.navigate_page)
+        page_controls=QWidget();page_controls_box=QHBoxLayout(page_controls);page_controls_box.setContentsMargins(0,0,0,0)
+        page_controls_box.addWidget(self.back_button);page_controls_box.addWidget(self.page_picker,1)
+        self.navigation.layout().addWidget(field('Page',page_controls))
         layout.addWidget(self.character_info)
         self.character_info.setWordWrap(True);self.character_info.setTextFormat(Qt.TextFormat.PlainText)
         self.pages=QStackedWidget(); layout.addWidget(self.pages,1)
-        self.nav_buttons={name:self.button(name,lambda n=name:self.show_page(n)) for name in TABS}
+        self.nav_buttons={name:self.button(page_title(name),lambda n=name:self.navigate_page(n)) for name in TABS}
         self.overview_button=self.nav_buttons['Overview']; self.settings_button=self.nav_buttons['Settings']
         self.scrolls=[]; self.page_layouts=[]; self.editors=[]; self.scrollers={}
         for name in TABS:
@@ -123,11 +126,17 @@ class Companion(SettingsMixin, Preview):
             self.pages.addWidget(scroll); self.scrolls.append(scroll); self.page_layouts.append(box); self.scrollers[name]=scroll
         def add(name,page): self.page_layouts[TABS.index(name)].addWidget(page); self.editors.append(page); return page
         self.build_overview(self.page_layouts[0])
-        self.gathering=add('Gathering',GatheringPage(self))
-        self.page_layouts[TABS.index('Crafting')].addWidget(row(*[self.button(n,lambda name=n:self.show_craft(name)) for n in ('Queue','Recipe book','Shopping list')]))
-        self.page_layouts[TABS.index('Crafting')].addWidget(self.button('Cached professions', self.show_profession_observations))
-        self.queue=add('Crafting',CraftEditor(self)); self.recipes=add('Crafting',CraftEditor(self,True)); self.shopping=add('Crafting',ShoppingPage(self))
-        self.show_craft('Queue')
+        from saved_professions_page import SavedProfessionsPage
+        self.saved_crafting=SavedProfessionsPage(self,'crafting');self.page_layouts[TABS.index('Crafting')].addWidget(self.saved_crafting)
+        self.saved_gathering=SavedProfessionsPage(self,'gathering');self.page_layouts[TABS.index('Gathering')].addWidget(self.saved_gathering)
+        planning=self.page_layouts[TABS.index('Planning')]
+        self.planning_choices={}
+        for name in ('Queue','Recipe book','Shopping list','Gathering goals','Manual inventory','Price journal'):
+            button=self.button(name,lambda n=name:self.show_planning(n));button.setCheckable(True);self.planning_choices[name]=button
+        planning.addWidget(row(*self.planning_choices.values()))
+        planning.addWidget(label('Manual plans · Saved game observations remain separate.'))
+        self.gathering=add('Planning',GatheringPage(self))
+        self.queue=add('Planning',CraftEditor(self)); self.recipes=add('Planning',CraftEditor(self,True)); self.shopping=add('Planning',ShoppingPage(self))
         self.wishlist_back=self.button('Back to wishlist',self.back_to_wishlist); self.wishlist_back.hide()
         self.wishlist_destination=FilterFeedbackLabel(); self.wishlist_destination.setTextFormat(Qt.TextFormat.RichText)
         self.wishlist_destination.setTextInteractionFlags(Qt.TextInteractionFlag.LinksAccessibleByMouse|Qt.TextInteractionFlag.LinksAccessibleByKeyboard)
@@ -137,16 +146,24 @@ class Companion(SettingsMixin, Preview):
         self.wishlist_destination.linkActivated.connect(lambda _:self.back_to_wishlist())
         self.wishlist_destination.installEventFilter(self)
         self.wishlist_destination.setMaximumWidth(440); self.wishlist_destination.hide()
-        self.inventory_scope=self.combo(['Saved Bags & Bank','Manual · selected character','Manual · all characters'],lambda text:self.set_inventory_view(self.inventory_scope.currentIndex()))
+        from PySide6.QtWidgets import QDialog
+        # Manual editors remain available to existing planning links, outside Storage.
+        self.manual_inventory_dialog=QDialog(self)
+        self.manual_inventory_dialog.setWindowTitle('Manual inventory plans');self.manual_inventory_dialog.resize(1100,800)
+        dialog_box=QVBoxLayout(self.manual_inventory_dialog)
+        self.manual_inventory_scroll=QScrollArea();self.manual_inventory_scroll.setWidgetResizable(True)
+        self.manual_inventory_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        manual_body=QWidget();manual_box=QVBoxLayout(manual_body)
+        self.manual_inventory_scroll.setWidget(manual_body);dialog_box.addWidget(self.manual_inventory_scroll)
         inventory_tools=QWidget();inventory_tools.box=QVBoxLayout(inventory_tools);inventory_tools.box.setContentsMargins(8,4,8,4)
-        inventory_tools.box.addWidget(row(field('View',self.inventory_scope)))
         inventory_tools.box.addWidget(row(self.wishlist_back,self.wishlist_destination))
-        self.page_layouts[TABS.index('Inventory & Bank')].addWidget(inventory_tools)
+        manual_box.addWidget(inventory_tools)
         from observed_inventory_dialog import ObservedInventoryDialog
         self.saved_inventory=ObservedInventoryDialog(self,embedded=True)
         self.page_layouts[TABS.index('Inventory & Bank')].addWidget(self.saved_inventory)
-        self.inventory_page=add('Inventory & Bank',StockPage(self))
-        self.alt_inventory=AltInventoryPage(self); self.page_layouts[TABS.index('Inventory & Bank')].addWidget(self.alt_inventory)
+        self.inventory_page=StockPage(self);self.editors.append(self.inventory_page);manual_box.addWidget(self.inventory_page)
+        self.alt_inventory=AltInventoryPage(self);manual_box.addWidget(self.alt_inventory)
+        dialog_box.addWidget(self.button('Close',self.manual_inventory_dialog.close))
         self.set_inventory_view(0)
         self.playstyle_context=label('')
         self.page_layouts[TABS.index('Gear wishlist')].addWidget(self.playstyle_context)
@@ -155,18 +172,27 @@ class Companion(SettingsMixin, Preview):
         self.gear_page=add('Gear wishlist',StockPage(self,True))
         self.playstyle_page=add('Gear wishlist',PlaystylePage(self)); self.show_gear_section(False)
         self.profile_page=add('Profiles & Rules',ProfilesPage(self)); self.tracker_page=add('Party & Trackers',TrackersPage(self))
-        self.probe_page=ProbePage(self); self.page_layouts[TABS.index('Activity')].addWidget(self.probe_page)
+        self.probe_page=ProbePage(self);self.probe_page.hide()
         activity=Panel(self,'Activity · this session'); self.page_layouts[TABS.index('Activity')].addWidget(activity)
-        self.activity_table=Table(['Time','Character','Source','State','Details'],height=450); activity.box.addWidget(self.activity_table)
+        activity.box.setAlignment(Qt.AlignmentFlag.AlignTop)
+        activity.box.addWidget(label('Recent companion events. This list is cleared when you close the companion.'))
+        self.activity_table=Table(['Time','Character','Source','State','Details'],height=260); activity.box.addWidget(self.activity_table)
+        self.activity_table.setColumnHidden(2,True);self.activity_table.setColumnHidden(3,True)
+        self.activity_table.setColumnWidth(1,180)
         activity.box.addWidget(row(self.button('Copy log',self.copy_log),self.button('Clear log',self.clear_log)))
-        activity.box.addWidget(label('Only state changes and reminders are logged. Up to 200 rows; never saved automatically.'))
-        self.journal=add('Auction Journal',JournalPage(self)); self.support=add('Auto-support',SupportPage(self))
+        activity.box.addStretch()
+        self.diagnostics_button=self.button('Show developer diagnostics',self.toggle_diagnostics)
+        self.page_layouts[TABS.index('Activity')].addWidget(self.diagnostics_button)
+        self.page_layouts[TABS.index('Activity')].addWidget(self.probe_page)
+        self.journal=add('Planning',JournalPage(self));self.show_planning('Queue',navigate=False)
+        from saved_auctions_page import SavedAuctionsPage
+        self.saved_auctions=SavedAuctionsPage(self);self.page_layouts[TABS.index('Auction Journal')].addWidget(self.saved_auctions)
+        self.support=add('Auto-support',SupportPage(self))
         self.build_settings(self.page_layouts[TABS.index('Settings')])
         from addons_page import AddonsPage
         self.addons_page=AddonsPage(self)
         self.page_layouts[TABS.index('Addons')].addWidget(self.addons_page)
-        self.footer=label(''); self.pause_button=self.button('Pause reminders',self.toggle_pause)
-        footer_row=QHBoxLayout(); footer_row.addWidget(self.footer,1); footer_row.addWidget(self.pause_button); layout.addLayout(footer_row)
+        self.footer=label('');layout.addWidget(self.footer)
         self.profiles_changed(); self.rebuild_navigation()
         self.wire_nested_scrolling(self)
 
@@ -198,7 +224,7 @@ class Companion(SettingsMixin, Preview):
         welcome.box.addWidget(label('Choose your preferences and connect saved game data here.'))
         self.installation_notice=label('');welcome.box.addWidget(self.installation_notice)
         self.installation_notice.setTextFormat(Qt.TextFormat.PlainText)
-        welcome.box.addWidget(label('Saved bags and bank records may be from different times. An unopened bank is unknown. Automatic inventory updates are not enabled yet.'))
+        welcome.box.addWidget(label('Storage and professions show saved observations. Their times may differ; an unopened bank remains unknown.'))
         welcome.box.addWidget(row(self.button('Setup guide',self.open_setup_guide),
                                  self.button('Review game data',lambda:self.character_overview.check_game_data()),
                                  self.button('Check game folders',self.refresh_installation_status)))
@@ -242,6 +268,9 @@ class Companion(SettingsMixin, Preview):
         self.sync_wishlist_return()
         self.alt_inventory.invalidate()
         self.saved_inventory.refresh_if_changed()
+        for name in ('saved_crafting','saved_gathering'):
+            page=getattr(self,name,None)
+            if page is not None and page.isVisible():page.refresh()
         for name in ('profile_page','tracker_page'):
             if hasattr(self,name): getattr(self,name).refresh()
 
@@ -288,10 +317,11 @@ class Companion(SettingsMixin, Preview):
         self.set_inventory_view(2 if all_characters else 1)
 
     def set_inventory_view(self,index):
-        self.inventory_scope.blockSignals(True);self.inventory_scope.setCurrentIndex(index);self.inventory_scope.blockSignals(False)
-        self.saved_inventory.setVisible(index==0)
+        self.saved_inventory.show()
         self.inventory_page.setVisible(index==1);self.alt_inventory.setVisible(index==2)
-        if index==0:self.saved_inventory.refresh_if_changed()
+        if index==0:
+            self.manual_inventory_dialog.hide();self.saved_inventory.refresh_if_changed()
+        else:self.manual_inventory_dialog.show()
 
     def show_observed_inventory(self):
         self.set_inventory_view(0);self.show_page('Inventory & Bank')
@@ -334,6 +364,7 @@ class Companion(SettingsMixin, Preview):
         except (ValueError,OSError,TypeError) as error:
             self.inventory_page.message(error); return
         self.inventory_page.end_temporary_search()
+        self.manual_inventory_dialog.hide()
         self.wishlist_return=None; self.sync_wishlist_return()
 
     def switch_character(self,id):
@@ -359,25 +390,63 @@ class Companion(SettingsMixin, Preview):
         for button in self.nav_buttons.values():button.hide()
         current=next((n for n,s in self.scrollers.items() if s==self.pages.currentWidget()),'Overview')
         names=[n for n in self.ordered_tabs() if n=='Settings' or n not in self.settings['hidden']]
-        self.page_picker.blockSignals(True);self.page_picker.clear();self.page_picker.addItems(names)
-        self.page_picker.setCurrentText(current if current in names else 'Settings');self.page_picker.blockSignals(False)
+        self.page_picker.blockSignals(True);self.page_picker.clear();self.page_picker.addItems([page_title(n) for n in names])
+        self.page_picker.setCurrentText(page_title(current) if current in names else 'Settings');self.page_picker.blockSignals(False)
         flow.invalidate()
-        self.show_page(self.page_picker.currentText())
+        self.show_page(self.page_picker.currentText(),record_history=False)
 
-    def show_page(self,name):
+    def navigate_page(self,name,*,record_history=True):
+        """User navigation; internal refresh/setup uses show_page directly."""
+        name=page_key(name)
+        if name not in self.scrollers:return False
+        if self.ready and self.pages.currentWidget()==self.scrollers['Settings'] and name!='Settings' and self.has_unsaved_settings():
+            self.page_picker.blockSignals(True);self.page_picker.setCurrentText('Settings');self.page_picker.blockSignals(False)
+            if not self.confirm_settings_exit():return False
+        self.show_page(name,record_history=record_history)
+        return True
+
+    def show_page(self,name,*,record_history=True):
+        name=page_key(name)
         if name in self.scrollers:
+            previous=next((key for key,scroll in self.scrollers.items() if scroll==self.pages.currentWidget()),None)
+            if self.ready and record_history and previous and previous!=name:
+                self.page_history=(self.page_history+[previous])[-40:]
             if name=='Inventory & Bank' and hasattr(self,'saved_inventory'):self.saved_inventory.refresh_if_changed()
             if name=='Overview' and hasattr(self,'character_overview'):self.character_overview.refresh()
             # Cross-links may open a hidden page for this visit without changing
             # the saved visible-tab choices or destroying any drafts.
             self.pages.setCurrentWidget(self.scrollers[name])
             self.page_picker.blockSignals(True)
-            if self.page_picker.findText(name)<0:self.page_picker.addItem(name)
-            self.page_picker.setCurrentText(name);self.page_picker.blockSignals(False)
+            title=page_title(name)
+            if self.page_picker.findText(title)<0:self.page_picker.addItem(title)
+            self.page_picker.setCurrentText(title);self.page_picker.blockSignals(False)
             for caption,button in self.nav_buttons.items():button.setChecked(caption==name)
+            self.back_button.setEnabled(bool(self.page_history))
+            self.back_button.setToolTip('Back to '+page_title(self.page_history[-1])+' (Alt+Left)' if self.page_history else 'No previous page')
+
+    def go_back(self):
+        if self.page_history:
+            target=self.page_history[-1]
+            if self.navigate_page(target,record_history=False):
+                self.page_history.pop()
+                self.back_button.setEnabled(bool(self.page_history))
+                self.back_button.setToolTip('Back to '+page_title(self.page_history[-1])+' (Alt+Left)' if self.page_history else 'No previous page')
+
+    def toggle_diagnostics(self):
+        visible=self.probe_page.isHidden()
+        self.probe_page.setVisible(visible)
+        self.diagnostics_button.setText('Hide developer diagnostics' if visible else 'Show developer diagnostics')
+        for column in (2,3):self.activity_table.setColumnHidden(column,not visible)
 
     def show_craft(self,name):
-        for caption,page in [('Queue',self.queue),('Recipe book',self.recipes),('Shopping list',self.shopping)]: page.setVisible(caption==name)
+        self.show_planning(name)
+
+    def show_planning(self,name,navigate=True):
+        for caption,page in [('Queue',self.queue),('Recipe book',self.recipes),('Shopping list',self.shopping),('Gathering goals',self.gathering),('Price journal',self.journal)]:
+            page.setVisible(caption==name)
+        for caption,button in self.planning_choices.items():button.setChecked(caption==name)
+        if navigate:self.show_page('Planning')
+        if name=='Manual inventory':self.show_inventory_section(False)
 
     def show_profession_observations(self, target=None):
         from profession_observations import ObservationCache
@@ -521,9 +590,6 @@ class Companion(SettingsMixin, Preview):
             self.cooldown.setValue(3); self.running_demo=True; self.demo_started=time.monotonic(); self.demo_button.setText('Stop demo')
         elif name=='Uncertain readings': self.sim.load({'readings':'Unknown'})
 
-    def toggle_pause(self):
-        self.paused=not self.paused; self.engine.reset(); self.pause_button.setText('Resume reminders' if self.paused else 'Pause reminders')
-
     def log(self,source,state,detail):
         self.activity.append((datetime.now().strftime('%H:%M:%S'),self.data.profile.name,source,state,detail)); self.activity=self.activity[-200:]
         self.activity_table.rows(list(enumerate(self.activity)))
@@ -573,7 +639,8 @@ class Companion(SettingsMixin, Preview):
         if hasattr(self,'inventory_page'): self.inventory_page.sync_temporary_notice()
 
     def style_table(self,widget):
-        family=self.fonts.family('Arial Narrow',self.settings['font_family']) if self.qt_settings['classic_fonts'] else self.appearance_font_family
+        fallback=self.settings['font_family']
+        family=self.fonts.family('Arial Narrow',fallback) if self.qt_settings['classic_fonts'] else getattr(self,'appearance_font_family',self.fonts.family(self.qt_settings['font_override'],fallback))
         if self.original_theme: family=getattr(self,'appearance_font_family',self.fonts.family('Lora',self.settings['font_family']))
         widget.setStyleSheet(f'QTableWidget, QHeaderView {{font-family: "{family}";font-size: {self.settings["text_size"]}pt;}}')
         widget.fit_headers()

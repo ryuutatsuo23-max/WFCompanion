@@ -1,6 +1,7 @@
 """One-time explicit character linking; no item counts are imported."""
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QDialog,QVBoxLayout,QComboBox,QMessageBox
+from controls import ComboBox as QComboBox
 from app import label
 from character_links import LinkStore,identity,create_profile
 

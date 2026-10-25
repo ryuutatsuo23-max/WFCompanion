@@ -28,8 +28,8 @@ class ViewTests(unittest.TestCase):
             try:
                 self.assertIn('No observations read', dialog.output.toPlainText())
                 self.assertFalse(dialog.refresh_button.isEnabled())
-                host.show_page('Crafting')
-                self.assertTrue(any(b.text() == 'Cached professions' for b in host.findChildren(QPushButton)))
+                host.show_page('Overview')
+                self.assertTrue(any(b.text() == 'Read professions save' for b in host.findChildren(QPushButton)))
                 for ranks, expected, guids in (({}, 'Unknown', {}), ({1: 0}, '0/0', {}),
                                                ({1: 4915212}, '12/75', {1: 'Player-999-ABC1'})):
                     chars = fixture(); chars[1]['Ranks'] = ranks

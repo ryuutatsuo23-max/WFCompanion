@@ -2,6 +2,7 @@
 from pathlib import Path
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QDialog, QVBoxLayout, QFileDialog, QComboBox
+from controls import ComboBox as QComboBox
 from app import Panel, label, row
 from widgets import Table
 from PySide6.QtWidgets import QTableWidgetItem
@@ -74,7 +75,7 @@ class SavedDataSettings(Panel):
     def __init__(self,host):
         super().__init__(host,'Saved game data');self.host=host
         self.current=text('');self.box.addWidget(self.current)
-        self.box.addWidget(text('Connect a Forever Core save to view saved characters, bags and bank. Choosing an addon installation folder alone does not connect saves. Beta saves are supported; release-client compatibility is still pending.'))
+        self.box.addWidget(text('Connect a Forever Core save to view characters and Storage. Supported Forever Professions observations are read from WFProfessions.lua in the same folder. Choosing an addon installation folder alone does not connect saves. Beta saves are supported; release-client compatibility is still pending.'))
         self.choices=QComboBox();self.choices.setMinimumContentsLength(25)
         self.choices.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
         self.box.addWidget(self.choices)

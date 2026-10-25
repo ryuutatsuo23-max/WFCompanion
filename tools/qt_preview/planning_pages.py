@@ -1,6 +1,7 @@
 """Manual gathering, reusable recipes, queue and combined shopping list."""
 from copy import deepcopy
 from uuid import uuid4
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QCheckBox,QDialog,QDialogButtonBox,QVBoxLayout
 from presentation import easy_mode,simple_requirement
 from app import row, label
@@ -19,7 +20,7 @@ class GatheringPage(Page):
         self.form=Form(host,[('name','Material name',str,''),('target','Extra gathering goal',str,'0'),('source','Source',SOURCES,'Either')])
         self.box.addWidget(self.form); self.lookup_controls('Material')
         self.box.addWidget(row(self.action('New material',self.new),self.action('Apply material',self.apply),
-            self.action('Remove selected',self.remove),self.action('Save plan',self.save),self.action('Edit inventory',lambda:host.show_page('Inventory & Bank'))))
+            self.action('Remove selected',self.remove),self.action('Save plan',self.save),self.action('Edit manual inventory',lambda:host.show_inventory_section(False))))
         self.stock_notice=label('');self.box.addWidget(self.stock_notice)
         self.shopping=Table(['Material','Needed','Bags','Bank','Owned','Remaining','Source']); self.box.addWidget(self.shopping)
         self.refresh()
@@ -28,7 +29,7 @@ class GatheringPage(Page):
         super().refresh()
         simple=easy_mode(self.host) and not self.show_details.isChecked()
         self.table.setColumnHidden(3,simple)
-        self.stock_notice.setText('Linked characters use saved addon counts; others use manual records. Missing or outdated counts mean not checked yet.' if simple else 'Linked addon bags/bank replace manual counts for these calculations, never add to them. Exact item IDs are required for addon matching. Open Inventory & Bank and choose Saved Bags & Bank for timestamps. Unobserved banks and counts predating a recorded craft remain unknown.')
+        self.stock_notice.setText('Linked characters use saved addon counts; others use manual records. Missing or outdated counts mean not checked yet.' if simple else 'Linked addon bags/bank replace manual counts for these calculations, never add to them. Exact item IDs are required for addon matching. Open Storage for saved observation times. Unobserved banks and counts predating a recorded craft remain unknown.')
         self.table.rows([(item_key(m.name,m.catalogue_ref),(m.name,m.target,m.source,m.owned)) for m in self.data.plan.materials])
         self.shopping.setHorizontalHeaderLabels(['Material','Needed','Bags','Bank','Have','Still needed','Source'] if simple else ['Material','Needed','Bags','Bank','Owned','Remaining','Source'])
         for col in (2,3):self.shopping.setColumnHidden(col,simple)
@@ -153,8 +154,44 @@ class CraftEditor(Page):
             if not any(e.id==self.edit_id for e in entries): raise ValueError('Entry was removed; choose New.')
             entries=[entry if e.id==self.edit_id else e for e in entries]
         else: entries.append(entry)
-        setattr(plan,key,entries); plan.validate(); self.data.plans[self.data.active]=plan; self.edit_id=entry.id
+        setattr(plan,key,entries); plan.validate()
+        previous=next((e for e in self.entries if e.id==entry.id),None)
+        if not self.recipes and previous is not None and entry.completed<previous.completed:
+            self.confirm_progress_reduction(plan,entry,previous)
+            return
+        self.apply_entry_plan(plan,entry.id)
+
+    def apply_entry_plan(self,plan,entry_id):
+        self.data.plans[self.data.active]=plan; self.edit_id=entry_id
         self.dirty('Crafting')
+
+    def confirm_progress_reduction(self,plan,entry,previous):
+        """Keep old editor values from silently replacing newer recorded progress."""
+        character=self.data.active;original=deepcopy(self.data.plan)
+        draft=(self.edit_id,self.form.values(),deepcopy(self.reference),deepcopy(self.references))
+        dialog=QDialog(self.host);dialog.setWindowTitle('Reduce recorded craft progress?');dialog.setModal(True)
+        box=QVBoxLayout(dialog)
+        for text in (previous.name,
+            f'Current plan: {previous.completed} / {previous.quantity} crafts completed.\nYour edits: {entry.completed} / {entry.quantity} crafts completed.',
+            'These edits reduce recorded progress. An older form may still contain the count from before you recorded a craft.',
+            'Apply these edits only if you intend to correct the progress. Cancel keeps the current plan and your unfinished edits. Use Undo last recorded craft to undo a recording instead.',
+            'Applying clears any available craft Undo. Material recheck status and saved Storage snapshots stay unchanged. Use Save plan to keep the applied changes.'):
+            text_label=label(text);text_label.setTextFormat(Qt.TextFormat.PlainText);text_label.setWordWrap(True);box.addWidget(text_label)
+        warning=label('');warning.setWordWrap(True);warning.hide();box.addWidget(warning)
+        buttons=QDialogButtonBox(QDialogButtonBox.StandardButton.Cancel)
+        confirm=buttons.addButton('Apply lower progress',QDialogButtonBox.ButtonRole.AcceptRole)
+        confirm.setAutoDefault(False)
+        buttons.button(QDialogButtonBox.StandardButton.Cancel).setDefault(True)
+        buttons.rejected.connect(dialog.reject);box.addWidget(buttons)
+        def accept_changes():
+            current=(self.edit_id,self.form.values(),self.reference,self.references)
+            if self.data.active!=character or self.data.plan!=original or current!=draft:
+                confirm.setEnabled(False);warning.setText('The character, plan or edits changed. Cancel and apply your edits again to review the current progress.');warning.show();return
+            self.apply_entry_plan(deepcopy(plan),entry.id);dialog.accept()
+        confirm.clicked.connect(accept_changes)
+        dialog.resize(660,330)
+        self.progress_dialog=dialog;self.progress_confirm=confirm
+        dialog.open()
 
     def remove(self):
         key=self.table.key()

@@ -11,11 +11,15 @@ class PayloadTests(unittest.TestCase):
                      'tools/offline_preview/theme_art/font.ttf','tools/addon_preview/preview.py',
                      'tools/qt_preview/test_companion.py','addons/Bagnon/main.lua',
                      'addons/WFCore/WTF/save.lua','../addons/WFCore/Core.lua','/addons/WFCore/Core.lua',
-                     'addons/WFCore/branding/other-icon.tga','addons/WFCore/branding/wfcompanion-logo.png'):
+                     'addons/WFCore/branding/other-icon.tga','addons/WFCore/branding/wfcompanion-logo.png',
+                     'tools/qt_preview/artwork/unreviewed.png','tools/qt_preview/artwork/private.json'):
             self.assertFalse(allowed(path),path)
         for path in ('tools/qt_preview/companion.py','tools/offline_preview/model.py',
                      'addons/WFCore/Core.lua','addons/WFStressProbe/WFStressProbe.toc',
-                     'addons/WFCore/branding/wfcompanion-icon.tga','addons/WFCore/ASSET_NOTICES.md'):
+                     'addons/WFCore/branding/wfcompanion-icon.tga','addons/WFCore/ASSET_NOTICES.md',
+                     'tools/qt_preview/artwork/forever-storage-transparent.png',
+                     'tools/qt_preview/artwork/forever-professions-transparent.png',
+                     'tools/qt_preview/artwork/PROFESSIONS_SOURCE_NOTICES.md'):
             self.assertTrue(allowed(path),path)
 
     def test_tracked_audit_has_runtime_and_recommended_addon(self):

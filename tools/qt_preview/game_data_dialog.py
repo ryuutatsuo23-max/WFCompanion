@@ -1,6 +1,7 @@
 """One explicit file read per request; discovery and parsing run off the UI thread."""
 from PySide6.QtCore import QObject,QRunnable,QThreadPool,Signal,Qt
 from PySide6.QtWidgets import QDialog,QVBoxLayout,QComboBox,QFileDialog,QScrollArea,QWidget,QSizePolicy
+from controls import ComboBox as QComboBox
 from app import label,row
 from widgets import Table
 from game_data_review import discover,read,locations,observed_time,sync_status

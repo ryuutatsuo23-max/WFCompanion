@@ -20,7 +20,15 @@ Core, Storage and Professions are installed from the pinned companion bundle. Ex
 
 Old combined-Core installations require a separately reviewed migration and are blocked before addon files change. WoW may stay open during copying; reload afterward, or restart fully for new addons/assets. The companion does not reload or exit the game for you. Companion updates do not automatically install bundled addons.
 
-## Crafting and shared launcher
+## Saved Crafting, Storage and Planning
+
+Crafting reads supported WFProfessions.lua observations alongside the connected WFCore.lua save, validates record statuses and links each character by GUID/client identity. It does not execute Lua or merge characters by name. Profession capture coverage varies: a recipe absent from a snapshot is unknown, not proof that it is unlearned. Gathering remains unfinished and hidden by default.
+
+Recipe material comparison uses recorded item IDs and preserves separate character/location observations. Incomplete observations and unknown banks are not zero. Saved quantities do not establish live craftability or include unobserved transfers. Material lookup opens Storage; Back restores the prior recipe/filter context. Double-clicking opens recipe details.
+
+The former manual Crafting and Gathering tools now live under Planning. Their applied records, editor drafts and manual counts remain separate from saved game observations. Further manual Planning review and usability work are deferred.
+
+## Manual craft recording and shared launcher
 
 Saved-material lookup matches exact item IDs when available, otherwise exact trimmed names without case sensitivity. Distinct IDs and characters remain separate. Missing or partial observations are not treated as zero. Recording a craft changes applied queue progress and marks its manual ingredient counts for rechecking; it does not deduct items or change saved snapshots.
 
@@ -29,6 +37,14 @@ Undo restores the prior applied plan and recheck state for the current character
 The shared launcher uses Core's companion compass and each installed module's icon. Update Core, Storage and Professions together through Addons to use the bundled integration. Shared visibility and position are separate from preserved standalone preferences. Older Core uses the standalone fallback. `/wfcore` opens the tray, `/wfcore welcome` opens welcome, and `/wfcore minimap show` restores a hidden launcher.
 
 All new shared-launcher behavior is verified offline only. Placement, dragging, combat, minimap replacements, shared visibility persistence and module regressions still require live testing on the release client.
+
+## Workspace and Settings
+
+Persisted navigation keys retain compatibility with earlier versions: Inventory & Bank displays as Storage and Auction Journal displays as Auction House. Storage is a saved-data view. Older manual inventory and planning records are retained rather than converted into game observations.
+
+The workspace defaults migration hides Gathering, Gear wishlist, Profiles & Rules, Party & Trackers, Auction House and Auto-support once. Saving Settings records the migration marker and subsequent page choices. Settings groups and collapsed sections persist separately from character editor drafts. Continue without saving keeps the current temporary settings in the session; it does not persist them. Save applies Settings only, and Stay cancels navigation.
+
+Activity shows the session log first; probe diagnostics are optional. The Auction House page is a hidden offline development placeholder, not live capture, trading or an installable addon. Its preview artwork is excluded pending recorded redistribution terms. Transparent Storage and Professions companion artwork and its notices are documented in [the artwork record](tools/qt_preview/artwork/README.md).
 
 ## Updates and recovery
 
@@ -63,7 +79,7 @@ Use Python 3.12 on Windows and Inno Setup 7.1.0:
 ```powershell
 python -m pip install -r tools/distribution/requirements-build.txt
 python -B -m unittest discover -s tools/distribution -p 'test_*.py' -q
-python -B tools/testing/run_qt_tests.py --timeout 300 --test-timeout 30
+python -B tools/testing/run_qt_tests.py --timeout 600 --test-timeout 30
 python -B tools/distribution/build_installer.py --public --iscc "C:\Program Files\Inno Setup 7\ISCC.exe"
 ```
 

@@ -188,7 +188,7 @@ class OverviewTests(unittest.TestCase):
                 before=files(root)
                 w.character_overview.card_buttons['alt'][0].click()
                 self.assertEqual(w.data.active,'alt')
-                self.assertEqual(w.inventory_scope.currentIndex(),0)
+                self.assertTrue(w.manual_inventory_dialog.isHidden())
                 self.assertEqual(w.saved_inventory.character_scope.currentIndex(),0)
                 self.assertEqual(w.saved_inventory.search.text(),'water')
                 self.assertEqual(w.pages.currentWidget(),w.scrollers['Inventory & Bank'])

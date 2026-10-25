@@ -2,6 +2,7 @@
 from datetime import datetime
 from PySide6.QtCore import QObject, QRunnable, QThreadPool, QTimer, Signal, Slot, Qt
 from PySide6.QtWidgets import QFileDialog, QPlainTextEdit, QComboBox, QSizePolicy
+from controls import ComboBox as QComboBox
 from app import Panel, label, row
 from widgets import Table
 from probe_report import ReportReader, summarize

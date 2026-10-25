@@ -10,7 +10,7 @@ from pathlib import Path
 import math
 import sys
 
-from PySide6.QtCore import Qt, QRect, QSize, QTimer, QPoint, QPointF
+from PySide6.QtCore import Qt, QRect, QSize, QTimer, QPoint, QPointF, QEvent
 from PySide6.QtGui import QColor, QFont, QPainter, QPixmap, QPalette, QPen, QTextLayout, QTextOption, QLinearGradient
 from PySide6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLayout, QSizePolicy,
@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
     QScrollArea, QStackedWidget, QProgressBar, QProxyStyle, QStyle,
     QStyleFactory, QStyleOptionButton, QStylePainter,
 )
+from controls import ComboBox as QComboBox
 
 SOURCE = Path(__file__).resolve().parents[1] / 'offline_preview'
 sys.path.insert(0, str(SOURCE))
@@ -192,6 +193,11 @@ class TextureStyle(QProxyStyle):
         self.textures = textures
         self.wow = True
 
+    def styleHint(self, hint, option=None, widget=None, returnData=None):
+        if hint == QStyle.StyleHint.SH_ComboBox_Popup:
+            return 0
+        return super().styleHint(hint, option, widget, returnData)
+
     def pixelMetric(self, metric, option=None, widget=None):
         if self.wow and metric in (QStyle.PixelMetric.PM_IndicatorWidth, QStyle.PixelMetric.PM_IndicatorHeight):
             return max(24, widget.fontMetrics().height() if widget else 24)
@@ -328,6 +334,31 @@ class Title(QWidget):
         painter.drawText(self.rect().adjusted(25, 0, -25, 0), Qt.AlignmentFlag.AlignCenter, self.text)
 
 
+class WrappingLabel(QLabel):
+    """Keep wrapped text readable when nested layouts cache an old height."""
+    def __init__(self, text):
+        super().__init__(text)
+        self.setWordWrap(True)
+
+    def fit_height(self):
+        needed = self.heightForWidth(self.width())
+        if needed >= 0 and self.minimumHeight() != needed:
+            self.setMinimumHeight(needed)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self.fit_height()
+
+    def changeEvent(self, event):
+        super().changeEvent(event)
+        if event.type() in (QEvent.Type.FontChange, QEvent.Type.StyleChange):
+            self.fit_height()
+
+    def setText(self, text):
+        super().setText(text)
+        self.fit_height()
+
+
 def label(text):
     widget = QLabel(text)
     widget.setWordWrap(True)
@@ -346,8 +377,27 @@ def paint_original_frame(painter, rect, colors):
         painter.drawLine(x+3,y,x,y+3);painter.drawLine(x,y+3,x-3,y)
 
 
+class FlowRow(QWidget):
+    """Reserve every wrapped line, including inside nested cards and panels."""
+    def fit_height(self):
+        if self.layout():
+            needed = self.layout().heightForWidth(self.width())
+            if self.minimumHeight() != needed:
+                self.setMinimumHeight(needed)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self.fit_height()
+
+    def event(self, event):
+        result = super().event(event)
+        if event.type() == QEvent.Type.LayoutRequest:
+            self.fit_height()
+        return result
+
+
 def row(*widgets):
-    container = QWidget()
+    container = FlowRow()
     layout = FlowLayout(container)
     for widget in widgets:
         layout.addWidget(widget)
@@ -424,7 +474,7 @@ class Preview(QWidget):
         if event.type() == QEvent.Type.ToolTip and isinstance(watched, QComboBox):
             # Character/tracker lists are populated with signals blocked.
             watched.setToolTip(watched.currentText())
-        if event.type() == QEvent.Type.Wheel and isinstance(watched, (QComboBox, QSpinBox, QSlider)):
+        if event.type() == QEvent.Type.Wheel and isinstance(watched, (QSpinBox, QSlider)):
             event.ignore()
             return True
         return super().eventFilter(watched, event)

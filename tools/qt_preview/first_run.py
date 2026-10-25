@@ -2,8 +2,9 @@
 from copy import deepcopy
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QWizard, QWizardPage, QVBoxLayout, QLabel, QComboBox, QFormLayout, QLineEdit, QListWidget, QCheckBox, QScrollArea, QWidget
+from controls import ComboBox as QComboBox
 from app import THEMES
-from settings_page import TABS
+from settings_page import TABS, page_title
 
 
 class SetupGuide(QWizard):
@@ -57,7 +58,7 @@ class SetupGuide(QWizard):
         contents.setObjectName('guideSurface'); scroll.viewport().setObjectName('guideViewport')
         self.tab_checks = {}
         for name in TABS[:-1]:
-            check = QCheckBox(name.replace('&', '&&')); check.setChecked(name not in host.settings['hidden']); checks.addWidget(check); self.tab_checks[name] = check
+            check = QCheckBox(page_title(name).replace('&', '&&')); check.setChecked(name not in host.settings['hidden']); checks.addWidget(check); self.tab_checks[name] = check
             check.toggled.connect(self.preview_tabs)
         scroll.setWidget(contents); tabs_layout.addWidget(scroll); self.addPage(tabs)
         from game_folder_picker import GameFolderPicker
@@ -74,7 +75,7 @@ class SetupGuide(QWizard):
         game_scroll.setWidget(body);game_layout.addWidget(game_scroll);self.addPage(game)
         self.add_text_page('Getting your saved game data',
             'After installing the addons, use /reload or log out normally to save game data. Newly added addons or assets may require a full game restart.\n\n'
-            'Connect the saved addon file through Settings. Choosing an addon installation folder does not change that saved-data connection. Inventory & Bank shows the latest saved observations; an unopened bank remains unknown.\n\n'
+            'Connect the saved addon file through Settings. Choosing an addon installation folder does not change that saved-data connection. Storage shows the latest saved observations; an unopened bank remains unknown.\n\n'
             'Without a game folder, you can still use manual notes and plans. You can choose a folder later on the Addons page.')
         self.apply_guide_style()
 

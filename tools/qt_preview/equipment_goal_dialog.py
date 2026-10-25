@@ -1,6 +1,7 @@
 """Review destination and identity before creating one saved planning goal."""
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QDialog, QVBoxLayout, QComboBox, QMessageBox
+from controls import ComboBox as QComboBox
 from app import label
 from equipment_goal import proposed_goal, save_goal
 

@@ -75,7 +75,7 @@ class AddonsPageTests(unittest.TestCase):
             host=Companion(root/'state');host.testing=True;host.updates_panel.timer.stop()
             try:
                 page=AddonsPage(host,clients=clients)
-                self.assertIsNone(page.client);self.assertIn('Multiple clients',page.notice.text())
+                self.assertIsNone(page.client);self.assertIn('Multiple clients',page.picker.notice.text())
             finally:host.close();self.app.processEvents()
 
     def test_core_installs_independently_and_storage_keeps_dependency(self):

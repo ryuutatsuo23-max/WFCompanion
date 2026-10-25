@@ -1,12 +1,43 @@
 """Persistent Qt appearance preview, independent of all character editors."""
 from copy import deepcopy
-from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QCheckBox, QLabel, QListWidget
+from PySide6.QtCore import Qt, QEvent
+from PySide6.QtWidgets import QCheckBox, QLabel, QListWidget, QLayout, QSizePolicy, QWidget, QWidgetItem, QVBoxLayout, QHBoxLayout, QMessageBox
 from app import Preview, Panel, row, field, label, THEMES, FONT_CHOICES
 from display_settings import DEFAULT, validate_preferences
 from appearance_catalogue import companion_themes
 
-TABS=('Overview','Gathering','Crafting','Inventory & Bank','Gear wishlist','Profiles & Rules','Party & Trackers','Activity','Auction Journal','Auto-support','Addons','Settings')
+TABS=('Overview','Gathering','Crafting','Inventory & Bank','Planning','Gear wishlist','Profiles & Rules','Party & Trackers','Activity','Auction Journal','Auto-support','Addons','Settings')
+DEFAULT_HIDDEN_TABS=('Gathering','Gear wishlist','Profiles & Rules','Party & Trackers','Auction Journal','Auto-support')
+
+
+class SectionBody(QWidget):
+    """Propagate wrapped content height through the collapsible body widget."""
+    def fit_height(self):
+        if self.layout():
+            for index in range(self.layout().count()):
+                child=self.layout().itemAt(index).widget()
+                if child is not None:
+                    needed=child.heightForWidth(min(self.width(),child.maximumWidth())) if child.hasHeightForWidth() else child.minimumSizeHint().height()
+                    if needed>=0 and child.minimumHeight()!=needed:child.setMinimumHeight(needed)
+            height=self.layout().totalHeightForWidth(self.width())
+            if height>=0 and self.minimumHeight()!=height:self.setMinimumHeight(height)
+
+    def resizeEvent(self,event):
+        super().resizeEvent(event);self.fit_height()
+
+    def event(self,event):
+        result=super().event(event)
+        if event.type()==QEvent.Type.LayoutRequest:self.fit_height()
+        return result
+
+
+def page_title(name):
+    # Keep persisted navigation keys compatible with earlier companion versions.
+    return {'Inventory & Bank':'Storage','Auction Journal':'Auction House'}.get(name,name)
+
+
+def page_key(title):
+    return {'Storage':'Inventory & Bank','Auction House':'Auction Journal'}.get(title,title)
 
 
 class SettingsMixin:
@@ -54,12 +85,12 @@ class SettingsMixin:
         experience=Panel(self,'Display mode');layout.addWidget(experience)
         self.experience_mode=self.combo(['Easy','Advanced'],self.change_experience_mode)
         experience.box.addWidget(row(field('Mode',self.experience_mode)))
-        experience.box.addWidget(label('Easy simplifies Overview, Inventory & Bank, Gear wishlist, Gathering and the Crafting shopping list. Advanced shows dates and record details. Show details is also available on these pages. All data and unfinished edits are kept.'))
+        experience.box.addWidget(label('Easy simplifies Overview, Gear wishlist and manual Planning views. Advanced shows dates and record details. Saved game views keep their observation summaries. All data and unfinished edits are kept.'))
         workspace=Panel(self,'Workspace · visible tabs'); layout.addWidget(workspace)
-        workspace.box.addWidget(label('Choose your workspace. Hiding a tab keeps its records and unfinished fields. Settings is always available.'))
+        workspace.box.addWidget(label('Choose the pages shown in the Page menu. Hidden pages keep their saved data. Settings is always available.'))
         self.tab_checks={}
         for name in TABS[:-1]:
-            c=QCheckBox(name.replace('&','&&')); c.toggled.connect(lambda checked,n=name:self.toggle_tab(n,checked)); self.tab_checks[name]=c
+            c=QCheckBox(page_title(name).replace('&','&&')); c.toggled.connect(lambda checked,n=name:self.toggle_tab(n,checked)); self.tab_checks[name]=c
         self.tab_check_row=row(*self.tab_checks.values()); workspace.box.addWidget(self.tab_check_row)
         self.visible=self.tab_checks['Overview']
         self.tab_order=QListWidget(); self.tab_order.setMinimumHeight(170); self.tab_order.setMaximumHeight(230)
@@ -88,10 +119,108 @@ class SettingsMixin:
         self.volume=self.slider(0,100,50,lambda v:self.change('volume',v)); self.volume_label=QLabel()
         self.volume_label.setMinimumWidth(65)
         sound.box.addWidget(row(self.sound_check,QLabel('Volume'),self.volume,self.volume_label,self.button('Test sound',lambda:self.play_sound(True))))
-        saving=Panel(self,'Save settings'); layout.addWidget(saving)
-        saving.box.addWidget(row(self.button('Save settings / finish setup',self.save_session),self.button('Revert unsaved settings',self.revert),self.button('Restore defaults',self.defaults)))
+        saving=Panel(self,'Apply settings changes');self.settings_actions=saving; layout.addWidget(saving)
+        saving.box.addWidget(row(self.dirty_button,self.button('Revert unsaved changes',self.revert),self.button('Restore defaults',self.defaults)))
         self.session_status=label('Settings preview instantly. Save keeps only these settings, never unfinished character edits.'); saving.box.addWidget(self.session_status)
-        saving.box.addWidget(label('Original tool and its saved files remain separate. Qt uses its own verified starting copy. Changes made in one tool do not automatically synchronize to the other.'))
+        # Reuse the existing controls and save semantics, but show one group at a time.
+        self.settings_groups={
+            'Connections':(self.saved_data_settings,self.getting_started),
+            'Appearance':(appearance,experience),
+            'Workspace':(workspace,self.planning_settings),
+            'Behaviour':(startup,closing,sound),
+            'Backup & updates':(self.backup_settings,self.updates_panel),
+        }
+        while layout.count():layout.takeAt(0)
+        self.settings_category_buttons={}
+        for name in self.settings_groups:
+            button=self.button(name,lambda n=name:self.select_settings_category(n));button.setCheckable(True)
+            self.settings_category_buttons[name]=button
+        layout.addWidget(row(*self.settings_category_buttons.values()))
+        for panels in self.settings_groups.values():
+            for panel in panels:
+                panel.box.setAlignment(Qt.AlignmentFlag.AlignTop)
+                panel.setSizePolicy(QSizePolicy.Policy.Expanding,QSizePolicy.Policy.Preferred)
+                layout.addWidget(panel)
+        saving.box.setAlignment(Qt.AlignmentFlag.AlignTop)
+        saving.setSizePolicy(QSizePolicy.Policy.Expanding,QSizePolicy.Policy.Preferred)
+        layout.addWidget(saving)
+        self.settings_sections={}
+        for panel in [p for panels in self.settings_groups.values() for p in panels]+[saving]:
+            title=panel.box.itemAt(0).widget();key=title.text
+            content=SectionBody();body=QVBoxLayout(content);body.setContentsMargins(0,0,0,0);body.setSpacing(panel.box.spacing())
+            while panel.box.count()>1:
+                item=panel.box.takeAt(1)
+                if item.widget():body.addWidget(item.widget())
+                elif item.layout():body.addLayout(item.layout())
+                else:body.addItem(item)
+            body.addStretch()
+            panel.box.addWidget(content)
+            header=QHBoxLayout(title);header.setContentsMargins(8,8,8,8);header.addStretch()
+            button=self.button('Hide',lambda k=key:self.toggle_settings_section(k));header.addWidget(button)
+            panel.section_content=content
+            self.settings_sections[key]=(panel,content,button)
+        # QWidgetItemV2 can retain the expanded height-for-width after its
+        # nested body hides. Use uncached items so collapse and wrapping both
+        # contribute their current height to the scroll layout.
+        for index in range(layout.count()):
+            widget=layout.itemAt(index).widget()
+            if widget is not None and hasattr(widget,'section_content'):
+                layout.takeAt(index)
+                layout.insertItem(index,QWidgetItem(widget))
+        self.sync_settings_sections()
+        # Propagate the visible group's minimum size to the scroll area when
+        # panels change; otherwise Qt can compress their framed headings.
+        layout.setSizeConstraint(QLayout.SizeConstraint.SetMinimumSize)
+        layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+        # The scroll widget can remain viewport-height after collapsing. Give
+        # its surplus space one destination, instead of gaps between sections.
+        layout.addStretch(1)
+        self.select_settings_category('Connections')
+
+    def has_unsaved_settings(self):
+        return self.settings!=self.saved or self.qt_settings!=self.saved_qt
+
+    def confirm_settings_exit(self):
+        dialog=QMessageBox(self)
+        dialog.setWindowTitle('Unsaved settings')
+        dialog.setIcon(QMessageBox.Icon.Question)
+        dialog.setText('Save your settings before leaving?')
+        dialog.setInformativeText('Continue without saving keeps your changes for this session. Save them later to keep them after closing the companion. Character edits are kept separately.')
+        save=dialog.addButton('Save settings',QMessageBox.ButtonRole.AcceptRole)
+        leave=dialog.addButton('Continue without saving',QMessageBox.ButtonRole.DestructiveRole)
+        stay=dialog.addButton('Stay in Settings',QMessageBox.ButtonRole.RejectRole)
+        dialog.setDefaultButton(save);dialog.setEscapeButton(stay)
+        dialog.exec()
+        choice=dialog.clickedButton();dialog.deleteLater()
+        if choice==save:
+            if self.save_session():return True
+            QMessageBox.warning(self,'Settings were not saved',self.session_status.text()+'\nYou are still in Settings. Your changes are kept here.')
+            return False
+        return choice==leave
+
+    def toggle_settings_section(self,key):
+        collapsed=set(self.qt_settings.get('collapsed_settings',[]))
+        if key in collapsed:collapsed.remove(key)
+        else:collapsed.add(key)
+        self.qt_settings['collapsed_settings']=sorted(collapsed)
+        self.sync_settings_sections();self.refresh_settings_status()
+
+    def sync_settings_sections(self):
+        for key,(panel,content,button) in getattr(self,'settings_sections',{}).items():
+            collapsed=key in self.qt_settings.get('collapsed_settings',[])
+            content.setVisible(not collapsed);button.setText('Show' if collapsed else 'Hide')
+            button.setAccessibleName(('Show ' if collapsed else 'Hide ')+key)
+            panel.setSizePolicy(QSizePolicy.Policy.Expanding,QSizePolicy.Policy.Maximum if collapsed else QSizePolicy.Policy.Preferred)
+            panel.box.invalidate();panel.updateGeometry()
+        if hasattr(self,'scrollers'):
+            self.scrollers['Settings'].widget().layout().invalidate()
+
+    def select_settings_category(self,name):
+        self.settings_category=name
+        for category,panels in self.settings_groups.items():
+            self.settings_category_buttons[category].setChecked(category==name)
+            for panel in panels:panel.setVisible(category==name)
+        if hasattr(self,'scrollers'):self.scrollers['Settings'].verticalScrollBar().setValue(0)
 
     def open_setup_guide(self):
         from first_run import SetupGuide
@@ -105,7 +234,7 @@ class SettingsMixin:
     def move_tab(self,direction):
         i=self.tab_order.currentRow(); j=i+direction
         if i<0 or not 0<=j<self.tab_order.count(): return
-        names=[self.tab_order.item(n).text() for n in range(self.tab_order.count())]
+        names=[page_key(self.tab_order.item(n).text()) for n in range(self.tab_order.count())]
         names[i],names[j]=names[j],names[i]; self.change('order',names); self.sync_order(); self.tab_order.setCurrentRow(j)
 
     def reset_order(self): self.change('order',[]); self.sync_order()
@@ -115,8 +244,9 @@ class SettingsMixin:
 
     def sync_order(self):
         selected=self.tab_order.currentItem().text() if self.tab_order.currentItem() else None
-        self.tab_order.clear(); self.tab_order.addItems(self.ordered_tabs())
-        if selected in self.ordered_tabs(): self.tab_order.setCurrentRow(self.ordered_tabs().index(selected))
+        titles=[page_title(n) for n in self.ordered_tabs()]
+        self.tab_order.clear(); self.tab_order.addItems(titles)
+        if selected in titles: self.tab_order.setCurrentRow(titles.index(selected))
         flow=self.tab_check_row.layout()
         while flow.count(): flow.takeAt(0)
         for name in self.ordered_tabs():
@@ -156,6 +286,7 @@ class SettingsMixin:
 
     def sync_controls(self):
         Preview.sync_controls(self)
+        self.sync_settings_sections()
         self.experience_mode.blockSignals(True)
         self.experience_mode.setCurrentText(self.qt_settings.get('experience_mode','Easy'))
         self.experience_mode.blockSignals(False)
@@ -172,7 +303,7 @@ class SettingsMixin:
         if not hasattr(self,'dirty_button'): return
         self.percent.setText(f"{self.settings['panel_transparency']}%")
         self.volume_label.setText(f"{self.settings['volume']}%")
-        self.dirty_button.setText('Unsaved settings · click to save' if self.settings!=self.saved or self.qt_settings!=self.saved_qt else 'No unsaved settings')
+        self.dirty_button.setText('Save settings · unsaved changes' if self.settings!=self.saved or self.qt_settings!=self.saved_qt else 'Save settings')
         self.font_status.setText(self.fonts.status())
 
     def save_session(self):
@@ -182,8 +313,9 @@ class SettingsMixin:
             values={key:deepcopy(self.settings[key]) for key in DEFAULT}; values.update(version=5,setup=True)
             validate_preferences(values); self.data.qt.validate(self.qt_settings)
             self.data.display.save(values)
+            self.data.qt.save(self.qt_settings)
             self.settings['setup']=True; self.saved=deepcopy(self.settings)
-            self.data.qt.save(self.qt_settings); self.saved_qt=deepcopy(self.qt_settings)
+            self.saved_qt=deepcopy(self.qt_settings)
             self.session_status.setText('Settings saved in Qt’s separate folder. Character editor drafts unchanged.')
         except (ValueError,OSError) as e:
             self.session_status.setText(str(e)); self.refresh_settings_status(); return False
@@ -195,6 +327,6 @@ class SettingsMixin:
 
     def defaults(self):
         support=deepcopy(self.settings['support'])
-        self.settings=deepcopy(DEFAULT); self.settings.update(overview_visible=True,support=support)
-        self.qt_settings=dict(version=1,classic_fonts=True,font_override='')
+        self.settings=deepcopy(DEFAULT); self.settings.update(overview_visible=True,support=support,hidden=list(DEFAULT_HIDDEN_TABS))
+        self.qt_settings=dict(version=1,classic_fonts=True,font_override='',workspace_defaults=2)
         self.apply_appearance(); self.sync_controls()

@@ -43,7 +43,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python -B -m unittest discover -s tools/testing -p 'test_*.py' -v
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          python -B tools/testing/run_qt_tests.py --timeout 300 --test-timeout 30
+          python -B tools/testing/run_qt_tests.py --timeout 600 --test-timeout 30
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Build public installer
         run: |

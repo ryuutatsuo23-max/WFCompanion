@@ -8,7 +8,8 @@ from PySide6.QtWidgets import QSizePolicy,QCheckBox,QWidget,QVBoxLayout,QGroupBo
 from pathlib import Path
 import os
 from presentation import easy_mode,simple_observation
-from app import Panel, label, row
+from app import Panel, WrappingLabel, row
+label = WrappingLabel
 from widgets import Table
 from equipment_review import EquipmentStore
 from local_journal import LocalStore
@@ -23,7 +24,7 @@ def validate_card_preferences(value):
         raise ValueError('Invalid character-card preferences; original file preserved.')
 
 
-class CardHandle(QLabel):
+class CardHandle(WrappingLabel):
     def __init__(self,text,page,key):
         super().__init__(text);self.page=page;self.key=key;self.start=None
         self.setWordWrap(True)
@@ -223,7 +224,7 @@ class CharacterOverview(Panel):
         self.check_button=host.button('Check for new game data',self.check_game_data)
         self.box.addWidget(self.check_button)
         self.records=[];self.table.itemSelectionChanged.connect(self.describe)
-        self.detail_actions=row(host.button('Open inventory & bank',lambda:self.open_page('Inventory & Bank')),
+        self.detail_actions=row(host.button('Open Storage',lambda:self.open_page('Inventory & Bank')),
                                host.button('Open equipment',self.open_equipment),
                                host.button('Open wishlist',lambda:self.open_page('Gear wishlist')),
                                host.button('Refresh overview',self.refresh))
@@ -370,7 +371,9 @@ class CharacterOverview(Panel):
 
     def open_page(self,name):
         if not self.select_character():return
-        if name=='Inventory & Bank':self.host.show_inventory_section(False)
+        if name=='Inventory & Bank':
+            self.host.saved_inventory.character_scope.setCurrentIndex(0)
+            self.host.show_observed_inventory()
         else:self.host.show_gear_section(False)
         self.host.show_page(name)
 

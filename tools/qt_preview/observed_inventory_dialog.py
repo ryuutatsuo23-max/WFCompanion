@@ -3,12 +3,14 @@ from pathlib import Path
 from datetime import datetime
 from PySide6.QtCore import Qt,QTimer
 from PySide6.QtWidgets import QDialog,QVBoxLayout,QComboBox,QLineEdit
+from controls import ComboBox as QComboBox
 from app import label,row
 from widgets import Table
 from observed_inventory import ObservationStore
 from game_data_review import observed_time
 from saved_inventory_view import linked_snapshots
 from character_links import LinkStore
+from addon_art import saved_heading
 
 
 class ObservedInventoryDialog(QDialog):
@@ -17,8 +19,9 @@ class ObservedInventoryDialog(QDialog):
         self.material=material
         self.embedded=embedded;self.scope='all'
         if embedded:self.setWindowFlags(Qt.WindowType.Widget)
-        self.setWindowTitle('Saved inventory');self.resize(1000,650);box=QVBoxLayout(self)
-        box.addWidget(label('Saved inventory · Read-only · Updates when the game saves.'))
+        self.setWindowTitle('Saved storage');self.resize(1000,650);box=QVBoxLayout(self)
+        self.heading=saved_heading('WFStorage','Saved storage · Read-only · Updates when the game saves.')
+        box.addWidget(self.heading)
         if material:
             self.setWindowTitle('Saved crafting material');self.resize(1150,700)
             hint=label('Matching item ID '+str(material[1]) if material[1] is not None else 'Matching exact item name; check item IDs when names are shared.')
@@ -27,8 +30,9 @@ class ObservedInventoryDialog(QDialog):
         self.character=QComboBox()
         for p in host.data.saved_profiles:self.character.addItem(p.name,p.id)
         self.character.setCurrentIndex(self.character.findData(host.data.active))
-        self.character.setVisible(not embedded)
-        self.character_scope=QComboBox();self.character_scope.addItems(['Selected character','All characters'])
+        self.character.hide()
+        self.character_scope=QComboBox();self.character_scope.setAccessibleName('Saved storage character')
+        self.character_scope.addItems(['','All characters']);self.sync_character_list()
         if material:
             self.character_scope.setCurrentIndex(1);self.character_scope.setEnabled(False);self.character.hide()
         self.buttons={}
@@ -48,16 +52,29 @@ class ObservedInventoryDialog(QDialog):
         if material:self.items.setColumnWidth(5,225)
         header=self.items.horizontalHeader();header.setSectionsClickable(True);header.setSortIndicatorShown(True)
         header.setSortIndicator(0,Qt.SortOrder.AscendingOrder);header.sectionClicked.connect(self.sort_items)
-        self.search.textChanged.connect(lambda _:self.select(self.scope))
+        self.search.textChanged.connect(self.search_changed)
         self.search_notice=label('');box.addWidget(self.search_notice)
         self.details=label('');self.details.setWordWrap(True);self.details.setTextFormat(Qt.TextFormat.PlainText);self.details.hide()
         box.addWidget(row(host.button('Details',lambda:self.details.setVisible(not self.details.isVisible())),host.button('Refresh saved observations',self.refresh)))
         box.addWidget(self.details)
-        if not embedded:box.addWidget(host.button('Back to crafting' if material else 'Close',self.accept))
-        self.character.currentIndexChanged.connect(self.refresh);self.character_scope.currentIndexChanged.connect(self.refresh)
+        if not embedded:box.addWidget(host.button('Back to Planning' if material else 'Close',self.accept))
+        self.character.currentIndexChanged.connect(self.refresh);self.character_scope.currentIndexChanged.connect(self.choose_character)
         self._loaded_signature=None;self._pending_signature=None;self._saved_times=None
         self.watch_timer=QTimer(self);self.watch_timer.setInterval(2000);self.watch_timer.timeout.connect(self.poll_saved_files)
         host.style_table(self.items);host.wire_nested_scrolling(self);self.refresh()
+
+    def search_changed(self):
+        if self.embedded:
+            self.material=None;self.search.setToolTip('')
+        self.select(self.scope)
+
+    def find_material(self,name,item_id):
+        """Open an exact saved-reagent lookup; editing search restores free search."""
+        self.material=(name,item_id)
+        self.search.blockSignals(True);self.search.setText(str(item_id));self.search.blockSignals(False)
+        self.search.setToolTip(f'{name} · exact item ID {item_id}. Edit or clear to search normally.')
+        self.character_scope.blockSignals(True);self.character_scope.setCurrentIndex(1);self.character_scope.blockSignals(False)
+        self.scope='all';self.refresh()
 
     def profiles(self):
         profiles=self.host.data.saved_profiles
@@ -93,10 +110,31 @@ class ObservedInventoryDialog(QDialog):
         self.refresh(follow_new=True)
 
     def sync_character_list(self):
+        all_characters=self.character_scope.currentIndex()==1
         if self.embedded:
             self.character.blockSignals(True);self.character.clear()
             for p in self.host.data.saved_profiles:self.character.addItem(p.name,p.id)
             self.character.setCurrentIndex(self.character.findData(self.host.data.active));self.character.blockSignals(False)
+        profiles=self.host.data.saved_profiles
+        active=self.host.data.active if self.embedded else self.character.currentData()
+        def title(profile):
+            return profile.name if sum(p.name==profile.name for p in profiles)==1 else f'{profile.name} ({profile.id})'
+        selected=next((p for p in profiles if p.id==active),None)
+        self.character_scope.blockSignals(True);self.character_scope.clear()
+        self.character_scope.addItem(title(selected) if selected else 'No saved character',active)
+        self.character_scope.addItem('All characters',None)
+        for profile in profiles:
+            if profile.id!=active:self.character_scope.addItem(title(profile),profile.id)
+        self.character_scope.setCurrentIndex(1 if all_characters else 0);self.character_scope.blockSignals(False)
+
+    def choose_character(self,index):
+        if index>1:
+            target=self.character_scope.currentData()
+            if self.embedded:
+                self.host.switch_character(target)
+            else:
+                self.character.blockSignals(True);self.character.setCurrentIndex(self.character.findData(target));self.character.blockSignals(False)
+        self.refresh()
 
     def refresh_if_changed(self):
         self.sync_character_list()
@@ -157,7 +195,7 @@ class ObservedInventoryDialog(QDialog):
         for name,button in self.buttons.items():button.setChecked(name==scope)
         if self.load_error:
             self.items.rows([]);self.notice.setText('Could not read saved items; see Details.')
-            self.empty_notice.setText('Saved inventory is unavailable. Check the saved-file connection in Settings, then try Refresh saved observations. Your saved records and manual plans have not been changed.')
+            self.empty_notice.setText('Saved storage is unavailable. Check the saved-file connection in Settings, then try Refresh saved observations. Your saved records and manual plans have not been changed.')
             self.empty_notice.show();self.details.setText(self.load_error);self.search_notice.setText('');return
         rows=[];details=[];summaries=[]
         missing=0;partial=0;complete=0;unconnected=0
@@ -194,12 +232,13 @@ class ObservedInventoryDialog(QDialog):
                     if not name:
                         try:matches=self.host.catalogue().search(str(item),limit=1)
                         except (ValueError,OSError):matches=[]
-                        name=matches[0].name if matches else f'Item #{item}'
+                        match=next((entry.reference for entry in matches if entry.reference.item_id==item),None)
+                        name=match.name if match else f'Item #{item}'
                     if self.material:
                         wanted,wanted_id=self.material
                         if (item!=wanted_id if wanted_id is not None else name.strip().casefold()!=wanted.strip().casefold()):continue
                     values=(name,profile.name,location.title(),quantity,item)
-                    if self.material:values+=(('Incomplete · ' if is_partial else '')+(saved or 'Unknown'),)
+                    if self.material and not self.embedded:values+=(('Incomplete · ' if is_partial else '')+(saved or 'Unknown'),)
                     rows.append(((profile.id,location,item),values))
             summaries.append(prefix+' · '.join(locations))
         total=len(rows);query=self.search.text().strip().casefold()
@@ -214,7 +253,7 @@ class ObservedInventoryDialog(QDialog):
         if rows:empty=''
         elif total:empty='No saved items match your search. Clear the search or try another item name or ID.'
         elif not profiles:empty='No saved characters to show. Choose or add a character in Overview.'
-        elif any(p.id in self.errors for p in profiles):empty='Saved inventory is unavailable for one or more characters. Check the saved-file connection in Settings, then try Refresh saved observations. This does not mean their bags or bank are empty.'
+        elif any(p.id in self.errors for p in profiles):empty='Saved storage is unavailable for one or more characters. Check the saved-file connection in Settings, then try Refresh saved observations. This does not mean their bags or bank are empty.'
         elif unconnected==len(profiles):empty='No saved file is connected for '+('this character' if len(profiles)==1 else 'these characters')+'. Connect saved game data in Settings to see items here. Choosing an addon installation folder does not connect saved data.'
         elif partial:empty='No items were captured in this incomplete snapshot. The contents are unknown, not confirmed empty. Save again with /reload or normal logout when the game is available.'
         elif missing:

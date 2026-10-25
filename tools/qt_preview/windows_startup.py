@@ -34,7 +34,7 @@ def set_enabled(value):
 
 
 def checkbox():
-    check = QCheckBox('Start WF Companion when I sign in to Windows')
+    check = QCheckBox('Start when I sign in to Windows')
     check.setEnabled(available())
     try: check.setChecked(enabled())
     except OSError: check.setToolTip('Windows startup settings could not be read.')

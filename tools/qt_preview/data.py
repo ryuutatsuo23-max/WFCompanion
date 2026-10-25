@@ -72,12 +72,18 @@ def import_legacy(source=SOURCE / 'state', destination=STATE):
 
 
 def validate_qt(data):
-    if not isinstance(data, dict) or set(data) not in ({'version', 'classic_fonts', 'font_override'}, {'version', 'classic_fonts', 'font_override','experience_mode'}) or data['version'] != 1:
+    required={'version','classic_fonts','font_override'}
+    if not isinstance(data, dict) or not required<=set(data) or set(data)-required-{'experience_mode','workspace_defaults','collapsed_settings'} or data['version'] != 1:
         raise ValueError('Unsupported Qt font settings.')
     if type(data['classic_fonts']) is not bool or data['font_override'] not in ('', 'Friz Quadrata TT', 'Arial Narrow', 'Morpheus', 'Skurri'):
         raise ValueError('Invalid Qt font choice.')
     if data.get('experience_mode','Easy') not in ('Easy','Advanced'):
         raise ValueError('Choose Easy or Advanced mode.')
+    if 'workspace_defaults' in data and (type(data['workspace_defaults']) is not int or data['workspace_defaults'] not in (1,2)):
+        raise ValueError('Unsupported workspace defaults.')
+    collapsed=data.get('collapsed_settings',[])
+    if not isinstance(collapsed,list) or len(collapsed)>30 or any(not isinstance(key,str) or len(key)>100 for key in collapsed):
+        raise ValueError('Invalid collapsed settings sections.')
 
 
 class Data:

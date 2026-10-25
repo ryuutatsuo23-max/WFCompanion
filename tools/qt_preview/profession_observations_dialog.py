@@ -4,6 +4,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (QDialog, QVBoxLayout, QFileDialog, QPlainTextEdit,
     QComboBox, QLineEdit, QScrollArea, QWidget, QGroupBox, QProgressBar,
     QTableWidget, QTableWidgetItem, QAbstractItemView, QHeaderView)
+from controls import ComboBox as QComboBox
 from app import label, row
 
 

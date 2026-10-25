@@ -4,7 +4,8 @@ import sys
 from pathlib import Path
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QComboBox, QFileDialog
-from app import label, row
+from controls import ComboBox as QComboBox
+from app import WrappingLabel as label, row
 
 if not getattr(sys, 'frozen', False):
     sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'distribution'))
@@ -37,11 +38,12 @@ def client_title(client):
 class GameFolderPicker(QWidget):
     selectionChanged = Signal(object)
 
-    def __init__(self, host, *, roots=None, selected=None, auto_select=True, unavailable=''):
+    def __init__(self, host, *, roots=None, selected=None, auto_select=True, unavailable='', compact=False):
         super().__init__(host)
         self.roots = list(standard_roots() if roots is None else roots)
         self.client = selected
         self.changed = False
+        self.compact=compact
         box = QVBoxLayout(self); box.setContentsMargins(0, 0, 0, 0)
         self.choices = QComboBox(); self.choices.setMinimumContentsLength(25)
         self.choices.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
@@ -51,10 +53,12 @@ class GameFolderPicker(QWidget):
         box.addWidget(self.target)
         self.notice = label(''); self.notice.setWordWrap(True); self.notice.setTextFormat(Qt.TextFormat.PlainText)
         box.addWidget(self.notice)
-        hint = label('Choose the client folder or its World of Warcraft parent folder. Custom locations can be browsed. Folder selection does not install addons or connect saved character data.')
+        hint = label('Choose your WoW folder. Connect saved character data separately in Settings.' if compact else 'Choose the client folder or its World of Warcraft parent folder. Custom locations can be browsed. Folder selection does not install addons or connect saved character data.')
         hint.setWordWrap(True); box.addWidget(hint)
         self.populate(find_clients(self.roots + ([selected] if selected else [])), auto_select and not unavailable)
-        if unavailable: self.notice.setText('Saved game folder is unavailable: ' + unavailable + '\nChoose a folder to continue; another client will not be selected automatically.')
+        if unavailable:
+            self.notice.setText('Previous game folder is unavailable. Choose its new location.' if compact else 'Saved game folder is unavailable: ' + unavailable + '\nChoose a folder to continue; another client will not be selected automatically.')
+            self.notice.setToolTip(unavailable)
         self.choices.currentIndexChanged.connect(self.select)
 
     def populate(self, clients, auto_select=False):
@@ -72,7 +76,7 @@ class GameFolderPicker(QWidget):
         self.describe()
 
     def describe(self):
-        self.target.setText((client_title(self.client) + ' selected\nClient: ' + str(self.client) +
+        self.target.setText(('Installs into: '+str(self.client/'Interface'/'AddOns')) if self.compact and self.client else (client_title(self.client) + ' selected\nClient: ' + str(self.client) +
                             '\nAddons will go to: ' + str(self.client / 'Interface' / 'AddOns')) if self.client else 'No game folder selected. Offline planning is available.')
         self.choices.setToolTip(str(self.client or 'Choose a client; installations are never merged.'))
 

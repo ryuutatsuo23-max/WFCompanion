@@ -1,6 +1,7 @@
 """Session-only destination selection and sample comparison; no Apply path."""
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QDialog, QVBoxLayout, QScrollArea, QWidget, QComboBox
+from controls import ComboBox as QComboBox
 from types import SimpleNamespace
 from app import row, label, field
 from widgets import Table

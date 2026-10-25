@@ -2,6 +2,7 @@
 from pathlib import Path
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QDialog,QVBoxLayout,QComboBox,QFileDialog,QMessageBox,QSizePolicy,QScrollArea,QWidget
+from controls import ComboBox as QComboBox
 from app import label
 from widgets import Table
 from probe_report import CLIENT,MAX_BYTES

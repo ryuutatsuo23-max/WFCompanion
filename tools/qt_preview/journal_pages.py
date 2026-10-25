@@ -11,7 +11,7 @@ from catalogue import item_key
 
 class JournalPage(Page):
     def __init__(self,host):
-        super().__init__(host,'Auction Journal')
+        super().__init__(host,'Manual price journal')
         self.form=Form(host,[('name','Item name',str,''),('market','Realm / market',str,'My market'),
             ('gold','Gold per item',str,''),('silver','Silver',str,''),('copper','Copper',str,''),('date','Observed date',str,date.today().isoformat())])
         self.form.controls['date'].setPlaceholderText('YYYY-MM-DD')
@@ -129,7 +129,7 @@ class ShoppingPage(Page):
         if result is None: raise ValueError('Select a material.')
         journal=self.host.journal; journal.new(); journal.reference=result.catalogue_ref
         journal.form.load(dict(name=result.name,market=self.form.values()['market'])); journal.link_label()
-        self.host.show_page('Auction Journal')
+        self.host.show_planning('Price journal')
 
 
     def open_saved_material(self):

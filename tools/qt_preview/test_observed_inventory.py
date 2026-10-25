@@ -14,6 +14,45 @@ from test_core_inventory_v2 import lua
 
 
 class ObservedTests(unittest.TestCase):
+    def test_storage_character_picker_preserves_filters_drafts_and_snapshots(self):
+        from unittest.mock import patch
+        from saved_inventory_view import linked_snapshots
+        from PySide6.QtWidgets import QLabel
+        app=QApplication.instance() or QApplication([]);w=Companion(self.root);w.testing=True
+        w.updates_panel.timer.stop();w.saved_character_connection.timer.stop()
+        view=w.saved_inventory;active=w.data.active;records=linked_snapshots(self.root,active)
+        alt=deepcopy(records);alt['bags']['rows']=((100,7),)
+        before=deepcopy(w.data.inventories);source=self.source.read_bytes()
+        try:
+            w.show_page('Storage')
+            self.assertEqual(w.page_picker.currentText(),'Storage')
+            self.assertFalse(hasattr(w,'inventory_scope'))
+            self.assertTrue(any(label.text().startswith('Saved storage ·') for label in view.findChildren(QLabel)))
+            self.assertEqual({view.character_scope.itemText(i) for i in range(view.character_scope.count())},
+                             {p.name for p in w.data.saved_profiles}|{'All characters'})
+            w.inventory_page.form.load({'name':'Keep manual draft'})
+            with patch('observed_inventory_dialog.linked_snapshots',side_effect=lambda directory,profile: records if profile==active else alt):
+                view.refresh();view.select('bags');view.search.setText('100');view.sort_items(3)
+                view.character_scope.setCurrentIndex(view.character_scope.findData('alt'))
+                self.assertEqual(w.data.active,'alt');self.assertEqual(w.character.currentData(),'alt')
+                self.assertEqual(view.character_scope.currentText(),'Alt')
+                self.assertEqual(view.items.keys,[('alt','bags',100)])
+                self.assertEqual(view.items.item(0,3).text(),'7')
+                self.assertEqual(view.search.text(),'100');self.assertEqual(view.scope,'bags');self.assertEqual(view.sort_column,3)
+                view.character_scope.setCurrentIndex(1);view.refresh()
+                self.assertEqual({key[0] for key in view.items.keys},{active,'alt'})
+                self.assertEqual(view.character_scope.currentText(),'All characters')
+                view.character_scope.setCurrentIndex(view.character_scope.findData(active))
+                self.assertEqual(w.data.active,active)
+                self.assertEqual(w.inventory_page.form.values()['name'],'Keep manual draft')
+                # Profile renames update labels without changing stable identity.
+                w.data.saved_profiles[1].name='Renamed alt';view.refresh()
+                self.assertGreaterEqual(view.character_scope.findText('Renamed alt'),0)
+            for profile,book in before.items():self.assertEqual(w.data.inventories[profile],book)
+            self.assertTrue(all(not book.entries for profile,book in w.data.inventories.items() if profile not in before))
+            self.assertEqual(self.source.read_bytes(),source)
+        finally:w.close();w.deleteLater();QThreadPool.globalInstance().waitForDone();app.processEvents()
+
     def test_empty_states_distinguish_unknown_empty_partial_and_filtered(self):
         from unittest.mock import patch
         from saved_inventory_view import linked_snapshots
@@ -322,11 +361,12 @@ class ObservedTests(unittest.TestCase):
             before=deepcopy((w.data.inventories,w.inventory_page.form.values()));disk=files(self.root)
             w.show_page('Inventory & Bank')
             view=w.saved_inventory
-            self.assertEqual(w.inventory_scope.currentIndex(),0)
+            self.assertFalse(hasattr(w,'inventory_scope'))
             self.assertFalse(view.isWindow());self.assertTrue(w.inventory_page.isHidden())
             self.assertGreater(view.items.rowCount(),0)
-            w.inventory_scope.setCurrentIndex(1)
-            self.assertTrue(view.isHidden());self.assertFalse(w.inventory_page.isHidden())
+            w.show_inventory_section(False)
+            self.assertFalse(view.isHidden());self.assertFalse(w.inventory_page.isHidden())
+            self.assertFalse(w.manual_inventory_dialog.isHidden())
             w.show_observed_inventory()
             self.assertEqual(before,(w.data.inventories,w.inventory_page.form.values()))
             self.assertEqual(files(self.root),disk)

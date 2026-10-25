@@ -15,6 +15,11 @@ ADDONS=('WFCore','WFStorage','WFProfessions','WFStressProbe','WFDisplayTest')
 def allowed(name):
     path=PurePosixPath(name)
     if path.is_absolute() or '..' in path.parts:return False
+    if name in ('tools/qt_preview/artwork/forever-storage-transparent.png',
+                'tools/qt_preview/artwork/forever-professions-transparent.png',
+                'tools/qt_preview/artwork/README.md','tools/qt_preview/artwork/GPL-3.0.txt',
+                'tools/qt_preview/artwork/STORAGE_SOURCE_NOTICES.md',
+                'tools/qt_preview/artwork/PROFESSIONS_SOURCE_NOTICES.md'):return True
     if len(path.parts)==3 and path.parts[0]=='addons' and path.parts[1] in ADDONS:
         return path.suffix in ('.lua','.toc','.xml','.md') or path.name=='LICENSE' or (path.parts[1]=='WFProfessions' and path.name=='PACKAGE_SHA256.json')
     if name in ('addons/WFCore/branding/wfcompanion-icon.tga','addons/WFStorage/branding/forever-storage-logo.png','addons/WFStorage/branding/forever-storage-icon.tga','addons/WFProfessions/branding/forever-professions-logo.png','addons/WFProfessions/branding/forever-professions-icon.tga','addons/WFProfessions/branding/README.md','addons/WFProfessions/PACKAGE_SHA256.json'):return True
