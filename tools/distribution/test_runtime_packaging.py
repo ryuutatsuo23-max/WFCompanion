@@ -29,6 +29,9 @@ EXPECTED={
 class RuntimePackagingTests(unittest.TestCase):
     def fixture(self, root):
         """Exercise the actual audited mapping with only known source files."""
+        # Hosted Windows TEMP can use an 8.3 alias (RUNNER~1). Production
+        # validation deliberately requires canonical, non-reparse source roots.
+        root=root.resolve(strict=True)
         source=root/'source';payload=root/'payload';source.mkdir();payload.mkdir()
         names=list(audit.ADDON_RUNTIME_SOURCES)
         for name in names:
@@ -131,9 +134,35 @@ assert not (root/'uninitialized-profile').exists()
         self.assertEqual({n.arg for n in read.keywords},{'expected_identity','expected_sha256'})
 
     def source_fixture(self, root, name='tools/distribution/addon_installation_service.py'):
+        root=root.resolve(strict=True)
         source=root/'source';source.mkdir();path=source/name
         path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes(b'value=1\n')
         return source,name,path
+
+    @unittest.skipUnless(os.name=='nt','Windows short-name fixture paths')
+    def test_short_name_fixture_is_canonical_without_relaxing_audit(self):
+        import ctypes
+        from ctypes import wintypes
+        kernel=ctypes.WinDLL('kernel32',use_last_error=True)
+        kernel.GetShortPathNameW.argtypes=(wintypes.LPCWSTR,wintypes.LPWSTR,wintypes.DWORD)
+        kernel.GetShortPathNameW.restype=wintypes.DWORD
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp).resolve()/'synthetic long source directory';root.mkdir()
+            buffer=ctypes.create_unicode_buffer(32768)
+            length=kernel.GetShortPathNameW(str(root),buffer,len(buffer))
+            self.assertTrue(0<length<len(buffer))
+            alias=Path(buffer.value)
+            if alias==root:self.skipTest('8.3 names unavailable on this test volume')
+            self.assertEqual(alias.resolve(strict=True),root)
+            source,name,path=self.source_fixture(alias)
+            self.assertEqual(source,root/'source')
+            self.assertEqual(audit.read_payload_source(source,name)[1],b'value=1\n')
+            # The fix belongs to fixture construction; raw aliases remain blocked.
+            with self.assertRaises(ValueError):audit.read_payload_source(alias/'source',name)
+            collection=root/'synthetic collection directory';collection.mkdir()
+            payload=self.fixture(alias/collection.name)
+            self.assertEqual(payload,collection/'payload')
+            self.assertTrue(EXPECTED<=build.collect_imports(payload,public=True))
 
     def assert_source_rejected(self, source, name):
         with patch.object(audit.subprocess,'check_output',return_value=(name+'\0').encode()):
@@ -415,7 +444,7 @@ with patch.object(canonical, 'install', return_value='sentinel') as install:
         import install_addons as engine
         pins = (ROOT/'tools/distribution/addon_packages.json').read_bytes()
         with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
+            root = Path(tmp).resolve(strict=True)
             (root/'addon_packages.json').write_bytes(pins)
             for addon, package in json.loads(pins)['packages'].items():
                 for name in package['files']:

@@ -25,6 +25,7 @@ class PayloadTests(unittest.TestCase):
     def test_tracked_audit_has_runtime_and_recommended_addon(self):
         names=('tools/qt_preview/companion.py','addons/WFCore/WFCore.toc')
         with tempfile.TemporaryDirectory() as directory:
+            directory=Path(directory).resolve(strict=True)
             for name in names:
                 path=Path(directory)/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_text('audit fixture')
             with patch('audit_payload.subprocess.check_output',return_value=('\0'.join(names)+'\0').encode()):

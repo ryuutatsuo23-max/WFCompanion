@@ -538,9 +538,13 @@ class PreparationTests(unittest.TestCase):
         except OSError as exc:
             if getattr(exc,'winerror',None) in (1,5,50,1314):self.skipTest('Symlinks unavailable: '+str(exc.winerror))
             raise
-        with self.assertRaisesRegex(ValueError,'Linked'):
-            with self.prepare():pass
-        self.assertTrue(target.is_symlink());self.assertEqual(list(self.backups.iterdir()),[])
+        # An external link fails containment before the explicit link check.
+        with self.assertRaisesRegex(ValueError,'Linked|escapes the selected game folder'):
+            with self.prepare():self.fail('Linked destination accepted')
+        self.assertTrue(target.is_symlink())
+        self.assertEqual(target.readlink(),self.root/'missing')
+        self.assertFalse((self.root/'missing').exists())
+        self.assert_clean()
 
     def test_limits_rejected_before_artifact_creation(self):
         for limit in ('MAX_TRANSACTION_FILES','MAX_TRANSACTION_BYTES','MAX_TRANSACTION_FILE_BYTES','MAX_TRANSACTION_TOTAL_BYTES'):
