@@ -538,11 +538,15 @@ class PreparationTests(unittest.TestCase):
         except OSError as exc:
             if getattr(exc,'winerror',None) in (1,5,50,1314):self.skipTest('Symlinks unavailable: '+str(exc.winerror))
             raise
+        link_target=target.readlink()  # Windows may return an extended-length prefix.
+        link_info=target.lstat()
         # An external link fails containment before the explicit link check.
         with self.assertRaisesRegex(ValueError,'Linked|escapes the selected game folder'):
             with self.prepare():self.fail('Linked destination accepted')
         self.assertTrue(target.is_symlink())
-        self.assertEqual(target.readlink(),self.root/'missing')
+        self.assertEqual(target.readlink(),link_target)
+        after=target.lstat()
+        self.assertEqual((after.st_dev,after.st_ino),(link_info.st_dev,link_info.st_ino))
         self.assertFalse((self.root/'missing').exists())
         self.assert_clean()
 
