@@ -418,6 +418,24 @@ assert not (root/'uninitialized-profile').exists()
 
 
 class PublicLayoutTests(unittest.TestCase):
+    def test_recovery_suite_discovers_without_preloaded_distribution_modules(self):
+        code = """
+import sys, unittest
+from pathlib import Path
+root=Path(sys.argv[1])
+assert 'install_addons' not in sys.modules
+loader=unittest.TestLoader()
+suite=loader.discover(str(root/'tools/qt_preview'),pattern='test_addon_recovery_dialog.py')
+assert not loader.errors, '\\n'.join(loader.errors)
+assert suite.countTestCases()>1
+import install_addons
+assert Path(install_addons.__file__).resolve()==root/'tools/distribution/install_addons.py'
+"""
+        with tempfile.TemporaryDirectory() as tmp:
+            result=subprocess.run([sys.executable,'-I','-B','-c',code,str(ROOT)],
+                                  cwd=tmp,capture_output=True,text=True,timeout=30)
+        self.assertEqual(result.returncode,0,result.stderr)
+
     def test_root_compatibility_import_shares_the_canonical_engine_and_lock_registry(self):
         code = """
 import sys

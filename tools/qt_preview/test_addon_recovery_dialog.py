@@ -6,11 +6,12 @@ from unittest.mock import patch
 
 from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import QApplication, QMessageBox
+# The shared GUI fixture establishes the source-layout distribution imports.
+import test_addon_transactions_page as fixtures
 import install_addons as engine
 from addon_operation_status import OperationStatus
 from addon_installation_service import ServiceResult
 from addon_installation_gui import GuiAddonTransactions
-import test_addon_transactions_page as fixtures
 
 
 @unittest.skipUnless(os.name=='nt','Windows transaction publication and locks')
