@@ -5,3 +5,6 @@ tools/offline_preview/theme_art/public_fonts/* -text -diff
 /addons/WFStorage/** -text
 
 /addons/WFProfessions/** -text
+
+# Preserve the exact historical writer bytes checked by the schema-1 regression.
+/tools/distribution/fixtures/addon_configuration_schema1.py -text

@@ -10,7 +10,8 @@ permissions:
 jobs:
   installer:
     runs-on: windows-2025
-    timeout-minutes: 20
+    # Recovery tests include bounded real process-interruption and mutex checks.
+    timeout-minutes: 60
     defaults:
       run:
         shell: pwsh
@@ -43,7 +44,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python -B -m unittest discover -s tools/testing -p 'test_*.py' -v
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          python -B tools/testing/run_qt_tests.py --timeout 600 --test-timeout 30
+          python -B tools/testing/run_qt_tests.py --timeout 1800 --test-timeout 90
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Build public installer
         run: |

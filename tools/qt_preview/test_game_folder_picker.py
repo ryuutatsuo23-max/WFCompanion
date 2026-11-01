@@ -9,9 +9,12 @@ from companion import Companion
 from addons_page import AddonsPage
 from game_folder_picker import GameFolderPicker, find_clients
 from first_run import SetupGuide
+import test_addons_page as fixtures
 
 
 class GameFolderTests(unittest.TestCase):
+    # Suppress all real discovery, saved-character polling and update checks.
+    setUp=fixtures.AddonsPageTests.setUp
     @classmethod
     def setUpClass(cls):cls.app=QApplication.instance() or QApplication([])
 
@@ -64,6 +67,35 @@ class GameFolderTests(unittest.TestCase):
                 self.assertFalse((client/'Interface').exists());self.assertFalse((client/'WTF').exists())
                 host.addons_page.picker.choices.setCurrentIndex(0)
                 reopened=AddonsPage(host,clients=[client]);self.assertIsNone(reopened.client)
+            finally:host.close();self.app.processEvents()
+
+    def test_moved_custom_parent_remembers_exact_client_without_changing_saved_data(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp).resolve()
+            old=root/'old-location/World of Warcraft/_forever_'
+            new=root/'new-drive/Blizzard/World of Warcraft'
+            forever=self.client(new,'_forever_');beta=self.client(new,'_classic_beta_')
+            state=root/'state';state.mkdir()
+            connection=state/'addon_connection.json'
+            connection.write_text(json.dumps({'client':str(old)}))
+            saved=state/'saved_character_connection.json'
+            saved.write_bytes(b'{"version":1,"directory":"","automatic":false}')
+            before=(saved.read_bytes(),saved.stat().st_mtime_ns)
+            host=Companion(state);host.testing=True;host.updates_panel.timer.stop()
+            try:
+                page=host.addons_page
+                self.assertIsNone(page.client);self.assertIn('unavailable',page.picker.notice.text())
+                with patch('game_folder_picker.QFileDialog.getExistingDirectory',return_value=str(new)):
+                    page.choose()
+                self.assertIsNone(page.client)  # Never choose between Forever/Beta silently.
+                page.picker.choices.setCurrentIndex(page.picker.choices.findData(str(forever)))
+                reopened=AddonsPage(host,clients=[])
+                self.assertEqual(reopened.client,forever)
+                self.assertEqual(json.loads(connection.read_bytes()),{'client':str(forever)})
+                self.assertIn(str(forever/'Interface/AddOns'),reopened.folder.text())
+                self.assertEqual((saved.read_bytes(),saved.stat().st_mtime_ns),before)
+                for client in (forever,beta):
+                    self.assertFalse((client/'Interface').exists());self.assertFalse((client/'WTF').exists())
             finally:host.close();self.app.processEvents()
 
 
