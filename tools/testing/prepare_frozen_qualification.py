@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import subprocess
 import sys
+import zipfile
 
 
 def digest(path):
@@ -27,6 +28,14 @@ def inventory(root):
     return result
 
 
+def zip_members(path):
+    with zipfile.ZipFile(path) as archive:
+        names = archive.namelist()
+        if len(names) != len(set(names)):
+            raise ValueError('Duplicate standard-library member')
+        return {name:hashlib.sha256(archive.read(name)).hexdigest() for name in names}
+
+
 def instrument_spec(source, hook, harness):
     tree = ast.parse(source)
     analyses = [node for node in ast.walk(tree)
@@ -40,7 +49,7 @@ def instrument_spec(source, hook, harness):
     # A custom runtime_hooks entry would run BEFORE the Qt setup hook.
     scripts.elts.insert(0, ast.Constant(str(hook)))
     for name, extra in (('runtime_hooks', []), ('pathex', [str(harness)]),
-                        ('hiddenimports', ['qualification_payload', 'unittest.mock'])):
+                        ('hiddenimports', ['qualification_payload'])):
         values = [value for value in analyses[0].keywords if value.arg == name]
         if len(values) != 1 or not isinstance(values[0].value, ast.List):
             raise ValueError('Unsupported specification field: ' + name)
@@ -81,6 +90,18 @@ def main():
                         '--distpath', str(stage / 'qualification-dist'), '--workpath', str(stage / 'qualification-work'),
                         str(spec)], env=environment, stdout=log, stderr=subprocess.STDOUT, check=True, timeout=300)
     qualified = stage / 'qualification-dist/WFCompanion'
+    # Match the public builder's optional-Qt pruning. Only generated files in
+    # this fresh instrumentation output may be removed; neither source nor the
+    # original public bundle is a deletion target.
+    qtroot = (qualified / '_internal/PySide6').resolve(strict=True)
+    if not qtroot.is_relative_to(stage / 'qualification-dist'):
+        raise ValueError('Instrumentation output escaped its stage')
+    for pattern in ('plugins/platforminputcontexts/*','plugins/imageformats/qpdf.dll','plugins/multimedia/*',
+                    'Qt6Qml*.dll','Qt6Quick*.dll','Qt6Pdf*.dll','Qt6VirtualKeyboard*.dll','Qt6Multimedia*.dll',
+                    'avcodec-*.dll','avformat-*.dll','avutil-*.dll','swresample-*.dll','swscale-*.dll'):
+        for unused in qtroot.glob(pattern):
+            if unused.is_file() and unused.resolve().is_relative_to(qtroot):
+                unused.unlink()
     after = inventory(qualified)
     if before != inventory(original):
         raise ValueError('Public bundle changed')
@@ -88,10 +109,16 @@ def main():
     payload = {key: value for key, value in before.items() if key.startswith('_internal/payload/')}
     if not payload or payload != {key: value for key, value in after.items() if key.startswith('_internal/payload/')}:
         raise ValueError('Instrumented build payload differs from public build')
+    changed = sorted(key for key in before.keys() | after.keys() if before.get(key) != after.get(key))
+    if set(changed) - {'WFCompanion.exe','_internal/base_library.zip'}:
+        raise ValueError('Instrumentation added or changed a runtime dependency: ' + repr(changed))
+    if zip_members(original/'_internal/base_library.zip') != zip_members(qualified/'_internal/base_library.zip'):
+        raise ValueError('Instrumentation changed standard-library ZIP members')
     report = dict(schema=1, commit=commit, original=str(original), instrumented=str(qualified),
                   original_inventory=before, instrumented_inventory=after,
-                  changed_bundle_paths=sorted(key for key in before.keys() | after.keys() if before.get(key) != after.get(key)),
-                  payload_identical=True, instrumentation='test-only runtime hook before unchanged production launcher',
+                  changed_bundle_paths=changed,
+                  payload_identical=True, standard_library_members_identical=True,
+                  instrumentation='test-only entry after builtin hooks, before unchanged production launcher',
                   harness={p.name:digest(p) for p in Path(__file__).parent.glob('qualification*.*') if p.is_file()})
     (args.evidence / 'build-binding.json').write_text(json.dumps(report, indent=2), encoding='utf-8')
     print(json.dumps({'commit':commit, 'instrumented_executable_sha256':after['WFCompanion.exe']['sha256'],

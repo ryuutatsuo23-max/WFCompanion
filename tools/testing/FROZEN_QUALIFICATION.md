@@ -22,6 +22,10 @@ the real bundled Companion, Addons page and recovery dialog. This is frozen
 module/UI integration evidence, not an untouched release-binary transaction test.
 The unchanged public executable also runs its existing startup smoke route under
 the same temporary standard user. No installer runs.
+Instrumentation uses the same optional-Qt pruning as the public builder and
+rejects any additional or changed runtime file other than the instrumented EXE
+and ZIP container metadata in base_library.zip (member bytes must match exactly).
+No unittest/mock support package is added to the bundle.
 
 The temporary account and profile exist only in the hosted VM. Its randomized
 password is held in memory and passed through Windows credential APIs, never

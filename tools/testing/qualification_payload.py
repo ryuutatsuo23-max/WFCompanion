@@ -4,6 +4,7 @@ UI responses and fault points are scripted; native account/configuration checks,
 package authentication, transaction locks, writes and recovery are NOT mocked.
 """
 import ctypes
+from contextlib import contextmanager
 from ctypes import wintypes
 import hashlib
 import importlib
@@ -18,6 +19,25 @@ import traceback
 
 PHASES = ('positive', 'interrupt-recovery', 'recover', 'reporting',
           'interrupt-changed', 'reject-changed', 'unsafe', 'lock')
+
+
+@contextmanager
+def replace_attribute(owner, name, value):
+    """Test seams only; avoids unittest.mock importing extra frozen dependencies."""
+    previous = getattr(owner,name)
+    setattr(owner,name,value)
+    try:
+        yield
+    finally:
+        setattr(owner,name,previous)
+
+
+def reporting_fault(*args, **kwargs):
+    raise OSError('synthetic reporting interruption')
+
+
+def forbidden_mutation(*args, **kwargs):
+    raise AssertionError('Unexpected reinstall or restoration')
 
 
 def require(condition, message):
@@ -81,7 +101,6 @@ def native_token(expected_sid):
 
 
 def run(root, phase, request, report):
-    from unittest.mock import patch
     import install_addons as engine
     from PySide6.QtWidgets import QApplication, QMessageBox
     from PySide6.QtCore import QThread
@@ -121,7 +140,7 @@ def run(root, phase, request, report):
     baseline = json.loads((area/'baseline.json').read_text(encoding='utf-8'))
     app = QApplication.instance() or QApplication([])
     # Only discovery input is narrowed. No transaction authority is injected.
-    with patch.object(game_folder_picker,'standard_roots',return_value=[client]):
+    with replace_attribute(game_folder_picker,'standard_roots',lambda:[client]):
         host = Companion(area/'ui-state')
     host.testing = True
     host.updates_panel.timer.stop()
@@ -141,7 +160,7 @@ def run(root, phase, request, report):
             return QMessageBox.StandardButton.Yes
         def install(addon='WFStorage', accept=True):
             prompts.clear()
-            with patch.object(QMessageBox,'question',side_effect=question if accept else lambda *a: (prompts.append(a[2]) or QMessageBox.StandardButton.Cancel)):
+            with replace_attribute(QMessageBox,'question',question if accept else lambda *a: (prompts.append(a[2]) or QMessageBox.StandardButton.Cancel)):
                 page.install_selected(addon)
         def installed(selected):
             expected = {p.relative_to(payload).as_posix():(p.stat().st_size,hashlib.sha256(p.read_bytes()).hexdigest())
@@ -154,7 +173,7 @@ def run(root, phase, request, report):
             dialog = page.review_recovery(); require(dialog is not None,'Recovery dialog unavailable')
             button = {'rollback':dialog.restore_action, 'report':dialog.report_action}[action]
             require(button.isEnabled(), 'Expected recovery action unavailable')
-            with patch.object(QMessageBox,'question',side_effect=question):
+            with replace_attribute(QMessageBox,'question',question):
                 dialog.resolve(action)
             require(not page._transaction_warnings, 'Unresolved recovery warning')
             dialog.reject()
@@ -187,7 +206,7 @@ def run(root, phase, request, report):
                     write_record(root/'results'/f'{phase}.json',report)
                     os._exit(73)  # Deliberate process death: no Python rollback/finally.
                 return value
-            with patch.object(engine.os,'replace',stop_after_write):install()
+            with replace_attribute(engine.os,'replace',stop_after_write):install()
             raise AssertionError('Interruption point not reached')
         elif phase in ('recover','reject-changed'):
             require((client/engine.PENDING_NAME).is_file(), 'Interrupted evidence missing')
@@ -219,13 +238,13 @@ def run(root, phase, request, report):
                 report['checks'].append('changed_recovery_evidence_rejected')
                 dialog.reject()
         elif phase == 'reporting':
-            with patch.object(OperationStatus,'reported',side_effect=OSError('synthetic reporting interruption')):
+            with replace_attribute(OperationStatus,'reported',reporting_fault):
                 install()
             installed(('WFCore','WFStorage'))
             require(not (client/engine.PENDING_NAME).exists(), 'Not a finish-reporting outcome')
             before = snapshot(client/'Interface/AddOns'); backups = snapshot(config.standard/'AddonBackups')
-            with patch.object(engine,'_execute_transaction_locked',side_effect=AssertionError('Unexpected reinstall')), \
-                 patch.object(engine,'_recover_pending_locked',side_effect=AssertionError('Unexpected restoration')):
+            with replace_attribute(engine,'_execute_transaction_locked',forbidden_mutation), \
+                 replace_attribute(engine,'_recover_pending_locked',forbidden_mutation):
                 recover('report')
             require(snapshot(client/'Interface/AddOns')==before and snapshot(config.standard/'AddonBackups')==backups, 'Finish reporting changed files')
             report['checks'].append('finish_reporting_without_reinstall_restore_or_backup_changes')

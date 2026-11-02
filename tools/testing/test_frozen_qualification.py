@@ -5,9 +5,10 @@ import os
 from pathlib import Path
 import tempfile
 import unittest
+import zipfile
 
-from prepare_frozen_qualification import instrument_spec, inventory
-from qualification_payload import PHASES, content, require, snapshot, write_record
+from prepare_frozen_qualification import instrument_spec, inventory, zip_members
+from qualification_payload import PHASES, content, require, snapshot, write_record, replace_attribute
 
 
 class QualificationHarnessTests(unittest.TestCase):
@@ -19,7 +20,7 @@ class QualificationHarnessTests(unittest.TestCase):
         self.assertEqual(values['runtime_hooks'],[])
         self.assertEqual(ast.literal_eval(call.args[0]),['hook.py','launcher.py'])
         self.assertEqual(values['pathex'],['payload','harness'])
-        self.assertEqual(values['hiddenimports'],['install_addons','qualification_payload','unittest.mock'])
+        self.assertEqual(values['hiddenimports'],['install_addons','qualification_payload'])
         for node in call.keywords:
             if node.arg in ('pathex','hiddenimports','runtime_hooks'):
                 node.value=next(k.value for k in original.body[0].value.keywords if k.arg==node.arg)
@@ -58,9 +59,30 @@ class QualificationHarnessTests(unittest.TestCase):
             with self.assertRaises(AssertionError):write_record(Path(temp)/'large',{'data':'x'*262144})
             self.assertFalse((Path(temp)/'large').exists())
 
+    def test_zip_container_metadata_cannot_hide_member_changes(self):
+        with tempfile.TemporaryDirectory() as temp:
+            paths=[Path(temp)/f'{i}.zip' for i in range(3)]
+            for i,path in enumerate(paths):
+                with zipfile.ZipFile(path,'w') as archive:
+                    entry=zipfile.ZipInfo('module.pyc',(2020+i,1,1,0,0,0))
+                    archive.writestr(entry,b'original' if i<2 else b'changed')
+            self.assertNotEqual(paths[0].read_bytes(),paths[1].read_bytes())
+            self.assertEqual(zip_members(paths[0]),zip_members(paths[1]))
+            self.assertNotEqual(zip_members(paths[0]),zip_members(paths[2]))
+
     def test_assertion_cannot_silently_accept(self):
         with self.assertRaisesRegex(AssertionError,'sentinel'):require(False,'sentinel')
         require(True,'unused')
+
+    def test_attribute_seam_restores_even_after_interruption(self):
+        class Owner:
+            value='original'
+        for exception in (ValueError,KeyboardInterrupt):
+            with self.assertRaises(exception):
+                with replace_attribute(Owner,'value','injected'):
+                    self.assertEqual(Owner.value,'injected')
+                    raise exception()
+            self.assertEqual(Owner.value,'original')
 
     def test_phase_list_is_bounded_and_explicit(self):
         self.assertEqual(len(PHASES),8)
