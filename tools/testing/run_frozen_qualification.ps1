@@ -112,7 +112,8 @@ foreach ($exe in @($request.exe,$request.public_exe)) {
 }
 $summary = @{schema=1;commit=$binding.commit;invocation=$invocation;runner_environment=$env:RUNNER_ENVIRONMENT;
     runner_name=$env:RUNNER_NAME;image_os=$env:ImageOS;image_version=$env:ImageVersion;test_sid=$account.SID.Value;
-    known_game_directories_absent=$true;preexisting_companion_state_absent=$true;network_blocked=$true;cases=@();status='running'}
+    known_game_directories_absent=$true;preexisting_companion_state_absent=$true;network_block_rules_created=$true;
+    network_profiles=@(Get-NetFirewallProfile | Select-Object Name,Enabled);cases=@();status='running'}
 $clock = [Diagnostics.Stopwatch]::StartNew()
 try {
     foreach ($phase in @('smoke','positive','interrupt-recovery','recover','reporting','interrupt-changed','reject-changed','unsafe','lock')) {
@@ -154,8 +155,17 @@ try {
             Write-Output "Frozen qualification passed: $phase"
         } finally {
             try { if ($job.Active() -ne 0) { $job.Terminate() } }
-            finally { if ($process) { $process.Dispose() }; $job.Dispose() }
+            finally {
+                try {
+                    # Also stop a child whose job assignment failed before its permit.
+                    if ($process -and -not $process.HasExited) {
+                        $process.Kill()
+                        if (-not $process.WaitForExit(5000)) { throw 'Owned controller did not terminate' }
+                    }
+                } finally { if ($process) { $process.Dispose() }; $job.Dispose() }
+            }
         }
+        if ($caseClock.Elapsed.TotalSeconds -ge 65) { throw 'Case disposal deadline exceeded' }
     }
     Assert-Bundle $binding.original $binding.original_inventory
     Assert-Bundle $binding.instrumented $binding.instrumented_inventory

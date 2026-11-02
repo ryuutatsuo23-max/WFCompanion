@@ -63,6 +63,42 @@ jobs:
           if ($app.ExitCode -ne 0 -or -not (Test-Path -LiteralPath (Join-Path $smokeDir 'smoke-ok.txt'))) { throw 'Packaged startup failed' }
           git rev-parse HEAD | Set-Content -LiteralPath dist/source-commit.txt
           python -m pip freeze | Set-Content -LiteralPath dist/build-dependencies.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: WFCompanion-Windows-unsigned
+          path: dist/
+          if-no-files-found: error
+          retention-days: 14
+  frozen-transactions:
+    # Independent fresh VM, not a self-hosted runner or an installed user machine.
+    runs-on: windows-2025
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      QT_QPA_PLATFORM: offscreen
+      PYTHONDONTWRITEBYTECODE: '1'
+      WF_TEST_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12.10'
+      - name: Install pinned build dependencies and check harness
+        run: |
+          python -m pip install -r tools/distribution/requirements-build.txt
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -B -m unittest discover -s tools/testing -p test_frozen_qualification.py -v
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Build exact-source public frozen bundle without installer
+        timeout-minutes: 5
+        run: |
+          python -B tools/distribution/build_installer.py --public
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Build separate frozen transaction instrumentation
         timeout-minutes: 10
         run: |
@@ -91,9 +127,3 @@ jobs:
             build/installer-*/qualification-dist/WFCompanion/
           if-no-files-found: warn
           retention-days: 7
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
-        with:
-          name: WFCompanion-Windows-unsigned
-          path: dist/
-          if-no-files-found: error
-          retention-days: 14

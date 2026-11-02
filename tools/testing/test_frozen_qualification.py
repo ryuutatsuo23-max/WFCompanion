@@ -79,6 +79,10 @@ class QualificationHarnessTests(unittest.TestCase):
         self.assertIn('$start.Password=$secure',script)
         self.assertNotIn('ArgumentList.Add($password)',script)
         self.assertNotIn('ArgumentList.Add($secure)',script)
+        self.assertIn('$process.Kill()',script)
+        self.assertGreater(script.index("throw 'Case disposal deadline exceeded'"),script.index('$job.Dispose()'))
+        self.assertIn('Get-NetFirewallProfile',script)
+        self.assertNotIn('network_blocked=$true',script)
 
 
 if __name__=='__main__':unittest.main()

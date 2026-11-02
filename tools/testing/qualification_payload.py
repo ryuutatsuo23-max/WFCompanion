@@ -255,7 +255,7 @@ def run(root, phase, request, report):
             finally:
                 release.set(); worker.join(5)
             require(not worker.is_alive() and not errors,'Lock-holder cleanup failed')
-            report['checks'].append('native_cross_thread_client_mutex_contention')
+            report['checks'].append('in_process_contention_while_native_client_mutex_held')
         require((client/'Wow.exe').read_bytes()==b'WF Companion synthetic client; not executable\n','Synthetic executable sentinel changed')
         require((client/'Interface/AddOns/SyntheticOther/keep.txt').read_bytes()==b'preserve unrelated synthetic file\n','Unrelated synthetic addon changed')
     finally:
