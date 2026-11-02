@@ -72,7 +72,8 @@ jobs:
   frozen-transactions:
     # Independent fresh VM, not a self-hosted runner or an installed user machine.
     runs-on: windows-2025
-    timeout-minutes: 20
+    # 27 minutes of step ceilings plus 13 for setup/uploads (56 seconds in run 41376088564).
+    timeout-minutes: 40
     defaults:
       run:
         shell: pwsh

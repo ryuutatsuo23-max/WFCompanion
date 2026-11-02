@@ -1,5 +1,6 @@
 """Durable outcome tests: synthetic clients only, including fresh-process exits."""
 from contextlib import contextmanager
+import hashlib
 import json
 import os
 import shutil
@@ -31,6 +32,133 @@ class DurableStatusTests(unittest.TestCase):
                 for p in self.root.rglob('*') if p.is_file()}
 
     def restart(self):return service.AddonInstallationService(self.state)
+
+    def settled_install(self):
+        self.assertTrue(self.install().ok)
+        record=self.record()
+        self.assertEqual(record['phase'],'finalized')
+        self.assertFalse(list(self.recovery.glob('.operation-reporting-*')))
+        self.assertFalse((self.client/engine.PENDING_NAME).exists())
+        return record
+
+    def replace_settled_history(self,change):
+        old=self.settled_install()['transaction']['id']
+        retained=self.users/('transaction-'+old)
+        old_copies={p.relative_to(retained):(p.read_bytes(),p.stat().st_mtime_ns)
+                    for p in retained.rglob('*') if p.is_file()}
+        if change=='addon_edit':self.original.write_bytes(b'legitimate synthetic external update')
+        elif change=='addon_removed':self.original.unlink()
+        else:
+            self.assertEqual(change,'backup_cleanup')
+            # Only the exact backup set created by this disposable fixture is removed.
+            self.assertEqual(retained.resolve().parent,self.users.resolve())
+            self.assertTrue(retained.resolve().is_relative_to(self.root))
+            shutil.rmtree(retained)
+        current=self.original.read_bytes() if self.original.exists() else None
+        before=self.fingerprint()
+        with self.subTest(api='pending_summary'):
+            advice=self.restart().pending_summary(self.client)
+            self.assertEqual((advice.pending,advice.configuration,advice.inspection),('none','available','verified'))
+            self.assertFalse(advice.manual_review or advice.may_report or advice.may_complete or advice.may_rollback)
+        with self.subTest(api='inspect'):
+            self.assertEqual(self.restart().inspect(self.client).category,'ready')
+        self.assertEqual(self.fingerprint(),before,'Inspection must not repair or rewrite historical evidence')
+        with self.subTest(api='install'):
+            result=self.restart().install(self.payload,self.client,['WFStorage','WFProfessions'])
+            self.assertEqual(result.category,'installation_complete',result)
+            new=self.record()['transaction']['id']
+            self.assertNotEqual(new,old)
+            original=self.users/('transaction-'+new)/'WFCore/module.lua'
+            if current is None:self.assertFalse(original.exists())
+            else:self.assertEqual(original.read_bytes(),current,'New backup must preserve current input bytes')
+            # Compare every managed output to independently declared fixture pins.
+            packages=json.loads((self.payload.parent/'addon_packages.json').read_bytes())['packages']
+            expected={addon+'/'+name:digest for addon,package in packages.items() for name,digest in package['files'].items()}
+            actual={p.relative_to(self.client/'Interface/AddOns').as_posix():hashlib.sha256(p.read_bytes()).hexdigest()
+                    for p in (self.client/'Interface/AddOns').rglob('*') if p.is_file()}
+            self.assertEqual(set(actual),set(expected)|{'Other/keep.lua'})
+            self.assertEqual({name:actual[name] for name in expected},expected)
+            self.assertFalse((self.client/engine.PENDING_NAME).exists())
+            self.assertFalse(list(self.recovery.glob('.operation-reporting-*')))
+            if change=='backup_cleanup':self.assertFalse(retained.exists())
+            else:self.assertEqual(old_copies,{p.relative_to(retained):(p.read_bytes(),p.stat().st_mtime_ns)
+                                             for p in retained.rglob('*') if p.is_file()})
+            self.assert_preserved()
+
+    def test_settled_history_allows_external_addon_edits_and_new_verified_install(self):
+        self.replace_settled_history('addon_edit')
+
+    def test_settled_history_allows_removed_addon_file_and_new_verified_install(self):
+        self.replace_settled_history('addon_removed')
+
+    def test_settled_history_allows_old_backup_cleanup_and_new_verified_install(self):
+        self.replace_settled_history('backup_cleanup')
+
+    def test_settled_history_does_not_bypass_current_package_authentication(self):
+        self.settled_install()
+        self.original.write_bytes(b'legitimate synthetic edit')
+        (self.payload/'WFCore/module.lua').write_bytes(b'unpinned package change')
+        before=self.fingerprint()
+        self.assertFalse(self.install().ok)
+        self.assertEqual(self.fingerprint(),before)
+        self.assertFalse((self.client/engine.PENDING_NAME).exists())
+
+    def test_settled_history_does_not_bypass_unsafe_current_destination(self):
+        self.settled_install()
+        os.link(self.original,self.root/'synthetic-hardlink-sentinel')
+        before=self.fingerprint()
+        self.assertFalse(self.install().ok)
+        self.assertEqual(self.fingerprint(),before)
+        self.assertFalse((self.client/engine.PENDING_NAME).exists())
+
+    def test_settled_history_exception_does_not_apply_to_fenced_or_incomplete_outcomes(self):
+        for state in ('fenced','terminal_without_fence'):
+            for changed in ('addon','backup'):
+                with self.subTest(state=state,changed=changed):
+                    f=DurableStatusTests();f.setUp()
+                    try:
+                        if state=='fenced':
+                            f.leave_reporting_pending()
+                            self.assertEqual(f.record()['phase'],'finalized')
+                            self.assertTrue(list(f.recovery.glob('.operation-reporting-*')))
+                        else:
+                            with patch.object(durable.OperationStatus,'finished',side_effect=OSError('synthetic reporting failure')):
+                                self.assertFalse(f.install().ok)
+                            self.assertEqual(f.record()['phase'],'terminal')
+                            # Synthetic marker loss does not turn an incomplete outcome into settled history.
+                            for marker in f.recovery.glob('.operation-reporting-*'):marker.unlink()
+                        self.assertFalse((f.client/engine.PENDING_NAME).exists())
+                        target=f.original if changed=='addon' else next(f.users.glob('transaction-*/originals.json'))
+                        target.write_bytes(b'changed synthetic evidence')
+                        before=f.fingerprint()
+                        self.assertEqual(f.restart().pending_summary(f.client).inspection,'unavailable')
+                        self.assertNotEqual(f.restart().inspect(f.client).category,'ready')
+                        self.assertFalse(f.install().ok)
+                        self.assertFalse(f.restart().complete(f.client).ok)
+                        self.assertEqual(f.fingerprint(),before)
+                    finally:f.doCleanups()
+
+    def test_settled_history_is_still_verified_when_a_different_valid_pending_transaction_exists(self):
+        old=self.settled_install()['transaction']['id']
+        publish=engine.PreparedTransaction.publish_pending
+        def interrupted(prepared):
+            publish(prepared);raise KeyboardInterrupt()
+        with patch.object(engine.PreparedTransaction,'publish_pending',interrupted):
+            with self.assertRaises(KeyboardInterrupt):self.install()
+        self.assertEqual(self.record()['transaction']['id'],old)
+        (self.users/('transaction-'+old)/'originals.json').write_bytes(b'changed old backup evidence')
+        # The new pending transaction itself is valid; the historical adoption check must reject.
+        with engine._transaction_client_lock(self.client) as (canonical,identity):
+            pending=engine._inspect_production_pending_locked(canonical,identity)
+            self.assertEqual(pending['state'],'valid')
+            self.assertNotEqual(pending['record']['id'],old)
+        before=self.fingerprint()
+        self.assertEqual(self.restart().pending_summary(self.client).inspection,'unavailable')
+        self.assertNotEqual(self.restart().inspect(self.client).category,'ready')
+        self.assertFalse(self.install().ok)
+        self.assertFalse(self.restart().complete(self.client).ok)
+        self.assertEqual(self.restart().rollback(self.client).category,'recovery_incomplete')
+        self.assertEqual(self.fingerprint(),before)
 
     def test_reporting_handoff_preserves_newer_attempt_after_termination_or_late_error(self):
         for mode in ('early_terminate', 'terminate', 'late'):

@@ -213,8 +213,10 @@ class AddonInstallationService:
                     durable=active._durable(canonical,recovery,identity)
                     active._match_durable(durable,status)
                     if durable.document is not None and status['state']=='none':
-                        durable.verify_terminal(active.state/'AddonBackups')
                         if durable.fence is not None or durable.document['phase']!='finalized':
+                            # Settled history does not freeze addon bytes or old
+                            # backups; unresolved outcomes still require both.
+                            durable.verify_terminal(active.state/'AddonBackups')
                             # Reporting is distinct from restoration. Residual
                             # recovery artifacts still require manual review.
                             unresolved=True
@@ -376,8 +378,10 @@ class AddonInstallationService:
                     # pending transaction only after explicit manual review.
                     active._match_durable(durable,status)
                     if status['state']=='none':
-                        durable.verify_terminal(active.state/'AddonBackups')
                         if durable.document['phase']!='finalized' or durable.fence is not None:
+                            # Only unresolved outcomes depend on historic bytes.
+                            # A new install independently validates current inputs.
+                            durable.verify_terminal(active.state/'AddonBackups')
                             if operation not in ('complete','rollback','report') or (operation!='report' and
                                     (operation=='complete') != (durable.document['outcome']=='installation')):
                                 result=self._durable_result(durable)

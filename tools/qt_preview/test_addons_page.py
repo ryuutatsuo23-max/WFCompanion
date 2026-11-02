@@ -175,11 +175,23 @@ class AddonsPageTests(unittest.TestCase):
                 self.assertEqual(save.read_bytes(),b'personal')
                 self.assertIsNone(host.addons_page.payload)
                 self.assertFalse(host.addons_page.action.isEnabled())
-                # Later external edits conflict with durable terminal evidence.
+                # Settled history permits a fresh, explicitly confirmed repair.
                 target.write_text('later edit');page.refresh()
-                with patch.object(QMessageBox,'question') as question:
-                    page.install_selected();question.assert_not_called()
-                self.assertEqual(target.read_text(),'later edit');self.assertFalse(page.action.isEnabled())
+                before={p:(p.read_bytes(),p.stat().st_mtime_ns) for p in [target,save,*backups]}
+                self.assertTrue(page.action.isEnabled())
+                with patch.object(QMessageBox,'question',return_value=QMessageBox.StandardButton.Cancel) as question:
+                    page.install_selected();question.assert_called_once()
+                self.assertEqual(question.call_args.args[1],'Replace addon files?')
+                self.assertEqual(question.call_args.args[-1],QMessageBox.StandardButton.Cancel)
+                self.assertEqual(before,{p:(p.read_bytes(),p.stat().st_mtime_ns) for p in before})
+                with patch.object(QMessageBox,'question',return_value=QMessageBox.StandardButton.Yes) as question:
+                    page.install_selected();question.assert_called_once()
+                self.assertEqual(target.read_bytes(),(payload/'WFStorage/WFStorage.toc').read_bytes())
+                copies=list((page.transactions.configuration.standard/'AddonBackups').glob('transaction-*/WFStorage/WFStorage.toc'))
+                self.assertEqual(sorted(p.read_text() for p in copies),['later edit','local modification'])
+                self.assertEqual(save.read_bytes(),b'personal')
+                self.assertEqual(page.status.text(),'Installed · matches bundled package')
+                self.assertFalse(page.action.isEnabled())
             finally:host.close();self.app.processEvents()
 
     def test_professions_entry_installs_dependency_without_storage(self):
@@ -249,7 +261,11 @@ class AddonsPageTests(unittest.TestCase):
                 page.refresh()
                 with patch.object(QMessageBox,'question',return_value=QMessageBox.StandardButton.Cancel) as question:
                     page.action.click()
-                    question.assert_not_called()  # Changed terminal files require recovery review first.
+                    question.assert_called_once()
+                self.assertEqual(question.call_args.args[1],'Replace addon files?')
+                self.assertIn('may be newer or locally modified',question.call_args.args[2])
+                self.assertIn('Addons: WFCore, WFStorage',question.call_args.args[2])
+                self.assertEqual(question.call_args.args[-1],QMessageBox.StandardButton.Cancel)
                 self.assertEqual(core.read_text(),'locally modified Core')
                 self.assertFalse((client/'Interface/AddOns/WFStorage/WFStorage.toc').exists())
             finally:host.close();self.app.processEvents()

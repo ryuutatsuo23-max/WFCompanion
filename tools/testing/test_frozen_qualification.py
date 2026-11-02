@@ -3,6 +3,7 @@ import ast
 import json
 import os
 from pathlib import Path
+import re
 import tempfile
 import unittest
 import zipfile
@@ -88,6 +89,18 @@ class QualificationHarnessTests(unittest.TestCase):
         self.assertEqual(len(PHASES),8)
         self.assertEqual(len(set(PHASES)),8)
         self.assertEqual(sum(p.startswith('interrupt-') for p in PHASES),2)
+
+    def test_job_budget_covers_step_deadlines_and_preserves_evidence_uploads(self):
+        workflow=(Path(__file__).resolve().parents[2]/'.github/workflows/windows-build.yml').read_text()
+        job=workflow.split('\n  frozen-transactions:\n',1)[1]
+        job_limit=int(re.search(r'^    timeout-minutes: (\d+)$',job,re.M)[1])
+        steps=[int(value) for value in re.findall(r'^        timeout-minutes: (\d+)$',job,re.M)]
+        self.assertEqual(steps,[5,10,12],'Per-step execution limits must not be relaxed')
+        self.assertGreaterEqual(job_limit,sum(steps)+10,'Reserve setup/upload time outside the step budgets')
+        self.assertLessEqual(job_limit,40,'The overall job must remain bounded')
+        uploads=[step for step in job.split('      - name: ')[1:] if step.startswith('Preserve ')]
+        self.assertEqual(len(uploads),2)
+        for step in uploads:self.assertIn('\n        if: always()\n',step)
 
     def test_account_creation_is_behind_hosted_guard_and_no_password_arguments(self):
         root=Path(__file__).parent
