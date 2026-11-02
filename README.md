@@ -22,6 +22,8 @@ Open **Page → Addons**, choose your game folder, and install the addons you wa
 
 Check the displayed folder before installing. Existing addon files are backed up and game saves are kept. WoW can stay open while files are copied; finish copying before using `/reload`. New addons or assets may need a full game restart.
 
+If an installation is interrupted, **Review addon recovery** explains the available next step. New installs stay blocked until the existing operation is resolved. Open Companion normally, without administrator mode, and check the client and backup location in the confirmation. Existing backup folders are kept in place.
+
 ## Connect your saved characters
 
 In **Settings → Connections → Saved game data**, find saved files or choose your **WFCore.lua** save. Preview the characters, then choose **Connect saved characters**. Keep **WFProfessions.lua** in the same saved-files folder to view supported crafting observations too.

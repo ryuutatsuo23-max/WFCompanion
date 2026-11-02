@@ -10,7 +10,40 @@ import shutil
 import subprocess
 import sys
 from datetime import datetime
-from audit_payload import audit,ROOT
+from audit_payload import audit,ROOT,read_payload_source,DISTRIBUTION_RUNTIME,ADDON_RUNTIME_SOURCES,payload_relative_path,read_source
+
+
+def collect_imports(payload, *, public=False):
+    """Static collection: no execution of collected sources or provisioning.
+
+    Input validation reuses the filesystem support gate, not account/token checks.
+
+    Distribution helpers live at payload root for PyInstaller's existing --paths.
+    Explicit hidden imports freeze lazy helpers without executing them on startup.
+    Qt sources remain data loaded through the launcher's existing Qt source path.
+    """
+    payload=Path(payload)
+    verified={}
+    for name in ADDON_RUNTIME_SOURCES:
+        relative=payload_relative_path(name)
+        try:
+            raw,identity=read_source(payload,relative)
+            verified[relative]=dict(expected_identity=identity,expected_sha256=hashlib.sha256(raw).hexdigest())
+        except FileNotFoundError:
+            raise ValueError('Required addon runtime source missing: '+relative) from None
+    sources={p.relative_to(payload).as_posix():p for p in payload.rglob('*.py')}
+    if not verified.keys()<=sources.keys():raise ValueError('Required addon runtime source disappeared during collection.')
+    locals={p.stem for p in sources.values()}
+    imports={'PySide6.QtCore','PySide6.QtGui','PySide6.QtWidgets','PySide6.QtMultimedia',
+             'sqlite3','ctypes','urllib.request','urllib.error','ssl','json','csv',*DISTRIBUTION_RUNTIME}
+    for relative in sorted(sources):
+        raw,_=read_source(payload,relative,**verified.get(relative,{}))
+        for node in ast.walk(ast.parse(raw.decode('utf-8-sig'))):
+            names=[a.name for a in node.names] if isinstance(node,ast.Import) else [node.module] if isinstance(node,ast.ImportFrom) and node.module else []
+            for name in names:
+                if name.split('.')[0] not in locals:imports.add(name)
+    if public:imports.discard('PySide6.QtMultimedia')
+    return imports
 
 
 def main():
@@ -27,10 +60,11 @@ def main():
         from public_branding import render
         branding_source=stage/'branding';render(branding_source)
     for row in files:
-        source=ROOT/row['path'];target=payload/row['path'];target.parent.mkdir(parents=True,exist_ok=True)
-        raw=source.read_bytes()
-        if hashlib.sha256(raw).hexdigest()!=row['sha256']:raise ValueError('Source changed during staging.')
+        relative,raw,_=read_payload_source(ROOT,row['path'],expected_identity=row['identity'],expected_sha256=row['sha256'])
+        target=payload/relative;target.parent.mkdir(parents=True,exist_ok=True)
         target.write_bytes(raw)
+    missing=[name for name in DISTRIBUTION_RUNTIME if not (payload/(name+'.py')).is_file()]
+    if missing:raise ValueError('Required addon runtime source missing: '+', '.join(missing))
     package_manifest=ROOT/'tools/distribution/addon_packages.json'
     if package_manifest.exists():
         shutil.copy2(package_manifest,payload/'addon_packages.json')
@@ -43,7 +77,6 @@ def main():
     if args.public:
         target.write_text(json.dumps(dict(version=1,revision='public-empty-v1',items=[],coverage_note='No bundled catalogue. Your captured items and manual plans are kept separately.')))
     else:shutil.copy2(source,target)
-    shutil.copy2(ROOT/'tools/distribution/install_addons.py',payload/'install_addons.py')
     # Only the reviewed, hash-pinned theme files; never copy the whole private art tree.
     art_manifest=json.loads((ROOT/'tools/distribution/theme_assets.json').read_text())
     public_art=json.loads((ROOT/'tools/distribution/public_theme_assets.json').read_text())
@@ -78,12 +111,7 @@ def main():
     (payload/'BUILD-NOTICE.txt').write_text('Local test build. Not published. Includes explicitly selected theme artwork, textures and fonts for user testing. Artwork, catalogue and font redistribution review remains required before public release. Personal saves are excluded.\n')
     if args.public:
         (payload/'BUILD-NOTICE.txt').write_text('WFCompanion public build. Original branding and drawn themes; Cinzel and Lora fonts under OFL-1.1 (licences beside font files). No Blizzard artwork or game fonts, bulk third-party catalogue or personal saves bundled. Qt/PySide are dynamically linked and replaceable; see notices.\n')
-    locals={p.stem for p in payload.rglob('*.py')};imports={'PySide6.QtCore','PySide6.QtGui','PySide6.QtWidgets','PySide6.QtMultimedia','sqlite3','ctypes','urllib.request','urllib.error','ssl','json','csv'}
-    for source in payload.rglob('*.py'):
-        for node in ast.walk(ast.parse(source.read_text(encoding='utf-8-sig'))):
-            names=[a.name for a in node.names] if isinstance(node,ast.Import) else [node.module] if isinstance(node,ast.ImportFrom) and node.module else []
-            for name in names:
-                if name.split('.')[0] not in locals:imports.add(name)
+    imports=collect_imports(payload,public=args.public)
     command=[sys.executable,'-m','PyInstaller','--noconfirm','--onedir','--windowed','--name','WFCompanion','--distpath',str(stage/'dist'),'--workpath',str(stage/'work'),'--specpath',str(stage),'--add-data',str(payload)+';payload','--paths',str(payload)]
     if args.public:
         imports.discard('PySide6.QtMultimedia')

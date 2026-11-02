@@ -647,6 +647,8 @@ class Companion(SettingsMixin, Preview):
         widget.verticalHeader().setDefaultSectionSize(max(30,widget.fontMetrics().height()+12))
 
     def closeEvent(self,event):
+        if getattr(getattr(self,'addons_page',None),'operation_active',False):
+            event.ignore();return
         if not self.testing and not self.close_behavior.allow_close():
             event.ignore();return
         if not self.testing and self.data.dirty:

@@ -20,6 +20,8 @@ Core, Storage and Professions are installed from the pinned companion bundle. Ex
 
 Old combined-Core installations require a separately reviewed migration and are blocked before addon files change. WoW may stay open during copying; reload afterward, or restart fully for new addons/assets. The companion does not reload or exit the game for you. Companion updates do not automatically install bundled addons.
 
+The Addons page uses client-bound transactions, verified staging and backups, and explicit interrupted-installation recovery. Account or configuration uncertainty blocks mutation. Recovery reporting is distinct from successful installation. The launcher/installer addon actions retain their legacy route. See [the transaction contract](tools/distribution/ADDON_TRANSACTIONS.md) for ownership, packaging and validation limits.
+
 ## Saved Crafting, Storage and Planning
 
 Crafting reads supported WFProfessions.lua observations alongside the connected WFCore.lua save, validates record statuses and links each character by GUID/client identity. It does not execute Lua or merge characters by name. Profession capture coverage varies: a recipe absent from a snapshot is unknown, not proof that it is unlearned. Gathering remains unfinished and hidden by default.
