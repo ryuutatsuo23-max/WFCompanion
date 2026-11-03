@@ -1,130 +1,154 @@
-name: Windows build
-on:
-  workflow_dispatch:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
-permissions:
-  contents: read
-jobs:
-  installer:
-    runs-on: windows-2025
-    # Recovery tests include bounded real process-interruption and mutex checks.
-    timeout-minutes: 60
-    defaults:
-      run:
-        shell: pwsh
-    env:
-      QT_QPA_PLATFORM: offscreen
-      PYTHONDONTWRITEBYTECODE: '1'
-      WF_TEST_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
-        with:
-          persist-credentials: false
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
-      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
-        with:
-          python-version: '3.12.10'
-      - name: Install pinned Python dependencies
-        run: |
-          python -m pip install -r tools/distribution/requirements-build.txt
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - name: Install verified Inno Setup compiler
-        run: |
-          $compilerSetup = Join-Path $env:RUNNER_TEMP 'innosetup-7.1.0-x64.exe'
-          Invoke-WebRequest 'https://github.com/jrsoftware/issrc/releases/download/is-7_1_0/innosetup-7.1.0-x64.exe' -OutFile $compilerSetup
-          $expected = '0362a383ed217d4c4239b5933866dd96d3eb2102737da92f80f6057a4b40df2f'
-          if ((Get-FileHash -LiteralPath $compilerSetup -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expected) { throw 'Inno Setup digest mismatch' }
-          $install = Start-Process -FilePath $compilerSetup -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/ALLUSERS' -WindowStyle Hidden -Wait -PassThru
-          if ($install.ExitCode -ne 0) { throw "Compiler install failed: $($install.ExitCode)" }
-          if (-not (Test-Path -LiteralPath 'C:\Program Files\Inno Setup 7\ISCC.exe')) { throw 'Compiler not found' }
-      - name: Public package and preference checks
-        run: |
-          python -B -m unittest discover -s tools/distribution -p 'test_*.py' -q
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          python -B -m unittest discover -s tools/testing -p 'test_*.py' -v
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          python -B tools/testing/run_qt_tests.py --timeout 1800 --test-timeout 90
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - name: Build public installer
-        run: |
-          python -B tools/distribution/build_installer.py --public --iscc 'C:\Program Files\Inno Setup 7\ISCC.exe'
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - name: Verify packaged startup and licence
-        run: |
-          $stage = Get-ChildItem -LiteralPath build -Directory -Filter 'installer-*' | Sort-Object Name | Select-Object -Last 1
-          $appDir = Join-Path $stage.FullName 'dist/WFCompanion'
-          $notice = Join-Path $appDir '_internal/payload/notices/WFCompanion-LICENSE.txt'
-          if ((Get-FileHash -LiteralPath $notice).Hash -ne (Get-FileHash -LiteralPath LICENSE).Hash) { throw 'Missing or changed project licence' }
-          $smokeDir = Join-Path $env:RUNNER_TEMP 'wfcompanion-smoke'
-          $app = Start-Process -FilePath (Join-Path $appDir 'WFCompanion.exe') -ArgumentList @('--smoke-test',$smokeDir) -WindowStyle Hidden -Wait -PassThru
-          if ($app.ExitCode -ne 0 -or -not (Test-Path -LiteralPath (Join-Path $smokeDir 'smoke-ok.txt'))) { throw 'Packaged startup failed' }
-          git rev-parse HEAD | Set-Content -LiteralPath dist/source-commit.txt
-          python -m pip freeze | Set-Content -LiteralPath dist/build-dependencies.txt
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
-        with:
-          name: WFCompanion-Windows-unsigned
-          path: dist/
-          if-no-files-found: error
-          retention-days: 14
-  frozen-transactions:
-    # Independent fresh VM, not a self-hosted runner or an installed user machine.
-    runs-on: windows-2025
-    # 27 minutes of step ceilings plus 13 for setup/uploads (56 seconds in run 41376088564).
-    timeout-minutes: 40
-    defaults:
-      run:
-        shell: pwsh
-    env:
-      QT_QPA_PLATFORM: offscreen
-      PYTHONDONTWRITEBYTECODE: '1'
-      WF_TEST_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
-        with:
-          persist-credentials: false
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
-      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
-        with:
-          python-version: '3.12.10'
-      - name: Install pinned build dependencies and check harness
-        run: |
-          python -m pip install -r tools/distribution/requirements-build.txt
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          python -B -m unittest discover -s tools/testing -p test_frozen_qualification.py -v
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - name: Build exact-source public frozen bundle without installer
-        timeout-minutes: 5
-        run: |
-          python -B tools/distribution/build_installer.py --public
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - name: Build separate frozen transaction instrumentation
-        timeout-minutes: 10
-        run: |
-          $stage = Get-ChildItem -LiteralPath build -Directory -Filter 'installer-*' | Sort-Object Name | Select-Object -Last 1
-          python -B tools/testing/prepare_frozen_qualification.py --stage $stage.FullName --evidence frozen-qualification-evidence
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - name: Qualify frozen transactions as a temporary standard user
-        timeout-minutes: 12
-        run: |
-          ./tools/testing/run_frozen_qualification.ps1 -Evidence (Join-Path $PWD 'frozen-qualification-evidence')
-      - name: Preserve bounded frozen qualification evidence
-        if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
-        with:
-          name: WFCompanion-frozen-qualification-evidence
-          path: frozen-qualification-evidence/
-          if-no-files-found: warn
-          retention-days: 14
-      - name: Preserve exact frozen binaries for review only
-        if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
-        with:
-          name: WFCompanion-frozen-test-bundles-not-for-release
-          path: |
-            build/installer-*/dist/WFCompanion/
-            build/installer-*/qualification-dist/WFCompanion/
-          if-no-files-found: warn
-          retention-days: 7
+{
+  "name": "Installer lifecycle qualification - F1 R1 N1 only",
+  "on": {
+    "workflow_dispatch": {
+      "inputs": {
+        "approval_code": {
+          "description": "Separately authorized exact plan ID; no default approval",
+          "required": true,
+          "type": "string"
+        },
+        "expected_revision": {
+          "description": "Exact independently checked workflow-branch commit SHA",
+          "required": true,
+          "type": "string"
+        }
+      }
+    }
+  },
+  "permissions": {
+    "contents": "read",
+    "actions": "read"
+  },
+  "concurrency": {
+    "group": "wf-lifecycle-2e7e1e8a225345d6ad550fa556daa826",
+    "cancel-in-progress": false
+  },
+  "jobs": {
+    "fresh": {
+      "name": "Lifecycle fresh",
+      "runs-on": "windows-2025",
+      "timeout-minutes": 45,
+      "defaults": {
+        "run": {
+          "shell": "pwsh"
+        }
+      },
+      "env": {
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "PYTHONNOUSERSITE": "1",
+        "WF_APPROVAL": "${{ inputs.approval_code }}",
+        "WF_REVISION": "${{ inputs.expected_revision }}"
+      },
+      "steps": [
+        {
+          "name": "Validate separately authorized hosted dispatch",
+          "timeout-minutes": 1,
+          "run": "$ErrorActionPreference='Stop'\nif($env:GITHUB_EVENT_NAME -ne 'workflow_dispatch' -or $env:GITHUB_RUN_ATTEMPT -ne '1' -or $env:RUNNER_ENVIRONMENT -ne 'github-hosted' -or $env:RUNNER_OS -ne 'Windows'){throw 'First-attempt hosted Windows dispatch required'}\nif($env:GITHUB_REPOSITORY -ne 'ryuutatsuo23-max/WFCompanion' -or $env:COMPUTERNAME -in @('RYUU','Drago2')){throw 'Unexpected host/repository'}\nif($env:WF_APPROVAL -cne '2e7e1e8a225345d6ad550fa556daa826' -or $env:WF_REVISION -cnotmatch '^[a-f0-9]{40}$' -or $env:WF_REVISION -cne $env:GITHUB_SHA){throw 'Explicit exact-revision approval required'}\nif((Get-CimInstance Win32_OperatingSystem).Caption -notlike '*Windows Server 2025*' -or -not [Environment]::Is64BitProcess -or $PSVersionTable.PSVersion.Major -lt 7){throw 'Reviewed x64 Server 2025 / PowerShell 7 environment required'}\n$principal=[Security.Principal.WindowsPrincipal]::new([Security.Principal.WindowsIdentity]::GetCurrent())\nif(-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)){throw 'Hosted setup administrator unavailable; no elevation fallback'}\n"
+        },
+        {
+          "uses": "actions/checkout@11d5960a326750d5838078e36cf38b85af677262",
+          "with": {
+            "ref": "${{ github.sha }}",
+            "persist-credentials": false
+          }
+        },
+        {
+          "name": "Authenticate exact capsule and installer inputs",
+          "timeout-minutes": 10,
+          "env": {
+            "GH_TOKEN": "${{ github.token }}"
+          },
+          "run": "$ErrorActionPreference='Stop'\n$tool=Join-Path $env:GITHUB_WORKSPACE 'tools/installer-lifecycle'\nif((Get-FileHash -LiteralPath (Join-Path $tool 'prepare_hosted.py')).Hash.ToLowerInvariant() -cne 'cca0b9b066db0c20c0493fcd96584ec413535578a1244a45ff70050016e95450'){throw 'Bootstrap changed'}\npython -I -B (Join-Path $tool 'prepare_hosted.py') --lane fresh --plan (Join-Path $tool 'execution-plan.json') --plan-sha256 'd6f01112242d57100784811ee59cc682a32342ed8c3a9f6b3019132348c3d814' --approval-code $env:WF_APPROVAL --expected-revision $env:WF_REVISION\nif($LASTEXITCODE -ne 0){exit $LASTEXITCODE}\n"
+        },
+        {
+          "name": "Run reviewed fresh lane once",
+          "timeout-minutes": 20,
+          "run": "$ErrorActionPreference='Stop'\n$preparedRoot=(Join-Path $env:RUNNER_TEMP 'wf-lifecycle-inputs-56331b3cf9b64f4c85adf6cb9d15962c')\n$prepared=Get-Content -LiteralPath (Join-Path $preparedRoot 'prepared.json') -Raw | ConvertFrom-Json\n$review=Join-Path $preparedRoot 'review'\n$controller=Join-Path $review 'harness/controller.ps1';$common=Join-Path $review 'harness/common.ps1'\nif((Get-FileHash -LiteralPath $controller).Hash.ToLowerInvariant() -cne '348c10367abe090b2651d3464733070b0f5eabe8656f5108475f9e15342804b7' -or (Get-FileHash -LiteralPath $common).Hash.ToLowerInvariant() -cne 'f145dfd880b17074e8c640a738ac4d5c1bafcf6469045ac4899aca81da7a9daf'){throw 'Controller bootstrap identity mismatch'}\n& $controller -ReviewRoot $review -Artifacts (Join-Path $preparedRoot 'artifacts') -Authorization (Join-Path $preparedRoot 'authorization.json') -AuthorizationSha256 $prepared.authorization_sha256 -SourceManifestSha256 '29c381125dde0ff53f927e3e6da987ed0acc276405454add7caa62f9d2711c4d' -Lane fresh\nif($LASTEXITCODE -ne 0){exit $LASTEXITCODE}\n"
+        },
+        {
+          "name": "Preserve bounded diagnostics",
+          "if": "${{ always() }}",
+          "timeout-minutes": 2,
+          "run": "$ErrorActionPreference='Stop'\n$preparedRoot=Join-Path $env:RUNNER_TEMP 'wf-lifecycle-inputs-56331b3cf9b64f4c85adf6cb9d15962c'\n$destination=Join-Path $env:RUNNER_TEMP 'wf-lifecycle-evidence-56331b3cf9b64f4c85adf6cb9d15962c'\n$fallback=Join-Path $env:RUNNER_TEMP 'wf-lifecycle-collection-incomplete-56331b3cf9b64f4c85adf6cb9d15962c.json'\nif((Test-Path -LiteralPath $destination) -or (Test-Path -LiteralPath $fallback)){throw 'Evidence destination reused'}\n[IO.File]::WriteAllText($fallback,'{\"complete\":false,\"reason\":\"collection did not finish\"}')\n\"upload_path=$fallback\" | Out-File -LiteralPath $env:GITHUB_OUTPUT -Append -Encoding utf8\nNew-Item -ItemType Directory -Path $destination | Out-Null\n$failure=$null\ntry {\n    # Preserve setup failures before invoking the reviewed collector, which may exit nonzero.\n    $setup=Join-Path $preparedRoot 'evidence'\n    if(Test-Path -LiteralPath $setup){\n        $setupItems=@(Get-ChildItem -LiteralPath $setup -Force)\n        if($setupItems.Count -gt 10 -or ($setupItems | Measure-Object Length -Sum).Sum -gt 2097152){throw 'Setup evidence bound'}\n        foreach($f in $setupItems){\n            if($f.PSIsContainer -or $f.Attributes -band [IO.FileAttributes]::ReparsePoint -or $f.Name -notmatch '^[A-Za-z0-9.-]+\\.json$' -or $f.Length -gt 5242880){throw 'Unsafe setup evidence'}\n            [IO.File]::Copy($f.FullName,(Join-Path $destination ('setup-'+$f.Name)),$false)\n        }\n    }\n    $owned='C:\\wf-lifecycle-ci-56331b3cf9b64f4c85adf6cb9d15962c'\n    if((Test-Path -LiteralPath (Join-Path $preparedRoot 'prepared.json')) -and (Test-Path -LiteralPath $owned)){\n        $collector=Join-Path $preparedRoot 'review/harness/collect.ps1';$common=Join-Path $preparedRoot 'review/harness/common.ps1'\n        if((Get-FileHash -LiteralPath $collector).Hash.ToLowerInvariant() -cne 'd0f65c6c1db5983c687a47aa259f42300e00097e70def72b9f4fa12d07131dd2' -or (Get-FileHash -LiteralPath $common).Hash.ToLowerInvariant() -cne 'f145dfd880b17074e8c640a738ac4d5c1bafcf6469045ac4899aca81da7a9daf'){throw 'Collector identity mismatch'}\n        & (Get-Process -Id $PID).Path -NoLogo -NoProfile -NonInteractive -File $collector -Root $owned -Destination (Join-Path $destination 'harness')\n        if($LASTEXITCODE -ne 0){$failure='HarnessCollectionFailed'}\n    } else {\n        $failure='ControllerEvidenceUnavailable'\n    }\n    $entries=@(Get-ChildItem -LiteralPath $destination -Force -Recurse)\n    if(@($entries | Where-Object { $_.Attributes -band [IO.FileAttributes]::ReparsePoint }).Count){throw 'Linked collection'}\n    $items=@($entries | Where-Object {-not $_.PSIsContainer})\n    $bytes=($items | Measure-Object Length -Sum).Sum\n    if($items.Count -gt 99 -or $bytes -gt 52428800){throw 'Combined evidence bound'}\n    $inventory=@($items | ForEach-Object {@{path=[IO.Path]::GetRelativePath($destination,$_.FullName);size=$_.Length;sha256=(Get-FileHash -LiteralPath $_.FullName).Hash.ToLowerInvariant()}})\n    $record=@{run_id=$env:GITHUB_RUN_ID;invocation='56331b3cf9b64f4c85adf6cb9d15962c';lane='fresh';collection_failure=$failure;files=$inventory} | ConvertTo-Json -Depth 8\n    $encoded=[Text.UTF8Encoding]::new($false).GetBytes($record)\n    if($encoded.Length -gt 5242880 -or $bytes+$encoded.Length -gt 52428800){throw 'Final evidence bound'}\n    [IO.File]::WriteAllBytes((Join-Path $destination 'transfer-manifest.json'),$encoded)\n    \"upload_path=$destination\" | Out-File -LiteralPath $env:GITHUB_OUTPUT -Append -Encoding utf8\n    if($failure){throw 'Evidence collection incomplete'}\n} catch {\n    [IO.File]::WriteAllText($fallback,(@{complete=$false;error_class=$_.Exception.GetType().Name;run_id=$env:GITHUB_RUN_ID;invocation='56331b3cf9b64f4c85adf6cb9d15962c'} | ConvertTo-Json -Compress))\n    throw 'Evidence collection incomplete; bounded diagnostics retained'\n}\n",
+          "id": "collect"
+        },
+        {
+          "name": "Upload synthetic lifecycle evidence",
+          "if": "${{ always() }}",
+          "timeout-minutes": 8,
+          "uses": "actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02",
+          "with": {
+            "name": "WF-lifecycle-fresh-${{ github.run_id }}",
+            "path": "${{ steps.collect.outputs.upload_path }}",
+            "if-no-files-found": "error",
+            "retention-days": 14
+          }
+        }
+      ]
+    },
+    "replacement": {
+      "name": "Lifecycle replacement",
+      "runs-on": "windows-2025",
+      "timeout-minutes": 45,
+      "defaults": {
+        "run": {
+          "shell": "pwsh"
+        }
+      },
+      "env": {
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "PYTHONNOUSERSITE": "1",
+        "WF_APPROVAL": "${{ inputs.approval_code }}",
+        "WF_REVISION": "${{ inputs.expected_revision }}"
+      },
+      "steps": [
+        {
+          "name": "Validate separately authorized hosted dispatch",
+          "timeout-minutes": 1,
+          "run": "$ErrorActionPreference='Stop'\nif($env:GITHUB_EVENT_NAME -ne 'workflow_dispatch' -or $env:GITHUB_RUN_ATTEMPT -ne '1' -or $env:RUNNER_ENVIRONMENT -ne 'github-hosted' -or $env:RUNNER_OS -ne 'Windows'){throw 'First-attempt hosted Windows dispatch required'}\nif($env:GITHUB_REPOSITORY -ne 'ryuutatsuo23-max/WFCompanion' -or $env:COMPUTERNAME -in @('RYUU','Drago2')){throw 'Unexpected host/repository'}\nif($env:WF_APPROVAL -cne '2e7e1e8a225345d6ad550fa556daa826' -or $env:WF_REVISION -cnotmatch '^[a-f0-9]{40}$' -or $env:WF_REVISION -cne $env:GITHUB_SHA){throw 'Explicit exact-revision approval required'}\nif((Get-CimInstance Win32_OperatingSystem).Caption -notlike '*Windows Server 2025*' -or -not [Environment]::Is64BitProcess -or $PSVersionTable.PSVersion.Major -lt 7){throw 'Reviewed x64 Server 2025 / PowerShell 7 environment required'}\n$principal=[Security.Principal.WindowsPrincipal]::new([Security.Principal.WindowsIdentity]::GetCurrent())\nif(-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)){throw 'Hosted setup administrator unavailable; no elevation fallback'}\n"
+        },
+        {
+          "uses": "actions/checkout@11d5960a326750d5838078e36cf38b85af677262",
+          "with": {
+            "ref": "${{ github.sha }}",
+            "persist-credentials": false
+          }
+        },
+        {
+          "name": "Authenticate exact capsule and installer inputs",
+          "timeout-minutes": 10,
+          "env": {
+            "GH_TOKEN": "${{ github.token }}"
+          },
+          "run": "$ErrorActionPreference='Stop'\n$tool=Join-Path $env:GITHUB_WORKSPACE 'tools/installer-lifecycle'\nif((Get-FileHash -LiteralPath (Join-Path $tool 'prepare_hosted.py')).Hash.ToLowerInvariant() -cne 'cca0b9b066db0c20c0493fcd96584ec413535578a1244a45ff70050016e95450'){throw 'Bootstrap changed'}\npython -I -B (Join-Path $tool 'prepare_hosted.py') --lane replacement --plan (Join-Path $tool 'execution-plan.json') --plan-sha256 'd6f01112242d57100784811ee59cc682a32342ed8c3a9f6b3019132348c3d814' --approval-code $env:WF_APPROVAL --expected-revision $env:WF_REVISION\nif($LASTEXITCODE -ne 0){exit $LASTEXITCODE}\n"
+        },
+        {
+          "name": "Run reviewed replacement lane once",
+          "timeout-minutes": 20,
+          "run": "$ErrorActionPreference='Stop'\n$preparedRoot=(Join-Path $env:RUNNER_TEMP 'wf-lifecycle-inputs-fe459d3fef2240f29b2938ab272a421e')\n$prepared=Get-Content -LiteralPath (Join-Path $preparedRoot 'prepared.json') -Raw | ConvertFrom-Json\n$review=Join-Path $preparedRoot 'review'\n$controller=Join-Path $review 'harness/controller.ps1';$common=Join-Path $review 'harness/common.ps1'\nif((Get-FileHash -LiteralPath $controller).Hash.ToLowerInvariant() -cne '348c10367abe090b2651d3464733070b0f5eabe8656f5108475f9e15342804b7' -or (Get-FileHash -LiteralPath $common).Hash.ToLowerInvariant() -cne 'f145dfd880b17074e8c640a738ac4d5c1bafcf6469045ac4899aca81da7a9daf'){throw 'Controller bootstrap identity mismatch'}\n& $controller -ReviewRoot $review -Artifacts (Join-Path $preparedRoot 'artifacts') -Authorization (Join-Path $preparedRoot 'authorization.json') -AuthorizationSha256 $prepared.authorization_sha256 -SourceManifestSha256 '29c381125dde0ff53f927e3e6da987ed0acc276405454add7caa62f9d2711c4d' -Lane replacement\nif($LASTEXITCODE -ne 0){exit $LASTEXITCODE}\n"
+        },
+        {
+          "name": "Preserve bounded diagnostics",
+          "if": "${{ always() }}",
+          "timeout-minutes": 2,
+          "run": "$ErrorActionPreference='Stop'\n$preparedRoot=Join-Path $env:RUNNER_TEMP 'wf-lifecycle-inputs-fe459d3fef2240f29b2938ab272a421e'\n$destination=Join-Path $env:RUNNER_TEMP 'wf-lifecycle-evidence-fe459d3fef2240f29b2938ab272a421e'\n$fallback=Join-Path $env:RUNNER_TEMP 'wf-lifecycle-collection-incomplete-fe459d3fef2240f29b2938ab272a421e.json'\nif((Test-Path -LiteralPath $destination) -or (Test-Path -LiteralPath $fallback)){throw 'Evidence destination reused'}\n[IO.File]::WriteAllText($fallback,'{\"complete\":false,\"reason\":\"collection did not finish\"}')\n\"upload_path=$fallback\" | Out-File -LiteralPath $env:GITHUB_OUTPUT -Append -Encoding utf8\nNew-Item -ItemType Directory -Path $destination | Out-Null\n$failure=$null\ntry {\n    # Preserve setup failures before invoking the reviewed collector, which may exit nonzero.\n    $setup=Join-Path $preparedRoot 'evidence'\n    if(Test-Path -LiteralPath $setup){\n        $setupItems=@(Get-ChildItem -LiteralPath $setup -Force)\n        if($setupItems.Count -gt 10 -or ($setupItems | Measure-Object Length -Sum).Sum -gt 2097152){throw 'Setup evidence bound'}\n        foreach($f in $setupItems){\n            if($f.PSIsContainer -or $f.Attributes -band [IO.FileAttributes]::ReparsePoint -or $f.Name -notmatch '^[A-Za-z0-9.-]+\\.json$' -or $f.Length -gt 5242880){throw 'Unsafe setup evidence'}\n            [IO.File]::Copy($f.FullName,(Join-Path $destination ('setup-'+$f.Name)),$false)\n        }\n    }\n    $owned='C:\\wf-lifecycle-ci-fe459d3fef2240f29b2938ab272a421e'\n    if((Test-Path -LiteralPath (Join-Path $preparedRoot 'prepared.json')) -and (Test-Path -LiteralPath $owned)){\n        $collector=Join-Path $preparedRoot 'review/harness/collect.ps1';$common=Join-Path $preparedRoot 'review/harness/common.ps1'\n        if((Get-FileHash -LiteralPath $collector).Hash.ToLowerInvariant() -cne 'd0f65c6c1db5983c687a47aa259f42300e00097e70def72b9f4fa12d07131dd2' -or (Get-FileHash -LiteralPath $common).Hash.ToLowerInvariant() -cne 'f145dfd880b17074e8c640a738ac4d5c1bafcf6469045ac4899aca81da7a9daf'){throw 'Collector identity mismatch'}\n        & (Get-Process -Id $PID).Path -NoLogo -NoProfile -NonInteractive -File $collector -Root $owned -Destination (Join-Path $destination 'harness')\n        if($LASTEXITCODE -ne 0){$failure='HarnessCollectionFailed'}\n    } else {\n        $failure='ControllerEvidenceUnavailable'\n    }\n    $entries=@(Get-ChildItem -LiteralPath $destination -Force -Recurse)\n    if(@($entries | Where-Object { $_.Attributes -band [IO.FileAttributes]::ReparsePoint }).Count){throw 'Linked collection'}\n    $items=@($entries | Where-Object {-not $_.PSIsContainer})\n    $bytes=($items | Measure-Object Length -Sum).Sum\n    if($items.Count -gt 99 -or $bytes -gt 52428800){throw 'Combined evidence bound'}\n    $inventory=@($items | ForEach-Object {@{path=[IO.Path]::GetRelativePath($destination,$_.FullName);size=$_.Length;sha256=(Get-FileHash -LiteralPath $_.FullName).Hash.ToLowerInvariant()}})\n    $record=@{run_id=$env:GITHUB_RUN_ID;invocation='fe459d3fef2240f29b2938ab272a421e';lane='replacement';collection_failure=$failure;files=$inventory} | ConvertTo-Json -Depth 8\n    $encoded=[Text.UTF8Encoding]::new($false).GetBytes($record)\n    if($encoded.Length -gt 5242880 -or $bytes+$encoded.Length -gt 52428800){throw 'Final evidence bound'}\n    [IO.File]::WriteAllBytes((Join-Path $destination 'transfer-manifest.json'),$encoded)\n    \"upload_path=$destination\" | Out-File -LiteralPath $env:GITHUB_OUTPUT -Append -Encoding utf8\n    if($failure){throw 'Evidence collection incomplete'}\n} catch {\n    [IO.File]::WriteAllText($fallback,(@{complete=$false;error_class=$_.Exception.GetType().Name;run_id=$env:GITHUB_RUN_ID;invocation='fe459d3fef2240f29b2938ab272a421e'} | ConvertTo-Json -Compress))\n    throw 'Evidence collection incomplete; bounded diagnostics retained'\n}\n",
+          "id": "collect"
+        },
+        {
+          "name": "Upload synthetic lifecycle evidence",
+          "if": "${{ always() }}",
+          "timeout-minutes": 8,
+          "uses": "actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02",
+          "with": {
+            "name": "WF-lifecycle-replacement-${{ github.run_id }}",
+            "path": "${{ steps.collect.outputs.upload_path }}",
+            "if-no-files-found": "error",
+            "retention-days": 14
+          }
+        }
+      ],
+      "needs": "fresh"
+    }
+  }
+}

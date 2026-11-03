@@ -1,0 +1,162 @@
+{
+  "schema": 1,
+  "phase": "prepared only; not an execution grant",
+  "plan_id": "2e7e1e8a225345d6ad550fa556daa826",
+  "source_commit": "99d50dd40b2eb9571c7619a8ae7fb9f1b3024e80",
+  "repository": "ryuutatsuo23-max/WFCompanion",
+  "proposed_branch": "codex/installer-lifecycle-qualification",
+  "workflow_path": ".github/workflows/windows-build.yml",
+  "workflow_id": 392897928,
+  "full_handoff_sha256": "2ca65f42058014e1c31599fed927f692bd48d7c5aa88619e962424924b62b119",
+  "full_source_manifest_sha256": "4ac7f4a43d53fbed4aea8fc2033bbac2991c91e534d9bb215c346732305a4956",
+  "capsule": {
+    "file": "execution-capsule.zip",
+    "size": 56172,
+    "sha256": "3149cd016b22d246cab297b281984b0693dfd2e8ef325ec6529fa2a057351482"
+  },
+  "capsule_manifest_sha256": "29c381125dde0ff53f927e3e6da987ed0acc276405454add7caa62f9d2711c4d",
+  "runtime_sources": [
+    {
+      "path": "harness/collect.ps1",
+      "size": 2254,
+      "sha256": "d0f65c6c1db5983c687a47aa259f42300e00097e70def72b9f4fa12d07131dd2"
+    },
+    {
+      "path": "harness/common.ps1",
+      "size": 17066,
+      "sha256": "f145dfd880b17074e8c640a738ac4d5c1bafcf6469045ac4899aca81da7a9daf"
+    },
+    {
+      "path": "harness/controller.ps1",
+      "size": 11866,
+      "sha256": "348c10367abe090b2651d3464733070b0f5eabe8656f5108475f9e15342804b7"
+    },
+    {
+      "path": "harness/guest.ps1",
+      "size": 12997,
+      "sha256": "7c788b605d12ef54f19c33cbbc2364223f0a46ba7307ba59a5b2efc18db449c6"
+    },
+    {
+      "path": "harness/host_guard.ps1",
+      "size": 2423,
+      "sha256": "27b8b8916cfa2db91e04a9606ccacd402ffcefbe125332213d6faac1cf95d67c"
+    }
+  ],
+  "bootstrap_sha256": "cca0b9b066db0c20c0493fcd96584ec413535578a1244a45ff70050016e95450",
+  "installers": {
+    "released": {
+      "file": "WFCompanion-0.1.33-released-Setup.exe",
+      "size": 46814195,
+      "sha256": "1798a90665d70a7db9caa6a6c69ce4c9f2062e317d6f1cdd83cc604cc40fde58",
+      "asset_id": 673949668,
+      "tag": "v0.1.33"
+    },
+    "candidate": {
+      "file": "WFCompanion-0.1.33-main-99d50dd-Setup.exe",
+      "size": 46949613,
+      "sha256": "72a1da4eccbdad6c505bb41b7fb31ad0adf68afbeffc860bc250772c5bf7a9b0",
+      "artifact_id": 13188477478,
+      "run_id": 41542477663
+    }
+  },
+  "ci_zip": {
+    "size": 92949448,
+    "sha256": "5afcafeaae303c1e509cfc11cf22e89c66a2b1e3da43a715ebb5e0e7612fe628"
+  },
+  "ci_members": [
+    {
+      "path": "build-dependencies.txt",
+      "size": 378,
+      "sha256": "624b2c87131eb3d6e4cdd5c809d9916ca53e4cd482b58baf7e1819b13fb1a8b5"
+    },
+    {
+      "path": "installer-20261102-232744/WFCompanion-0.1.33-Setup.exe",
+      "size": 46949613,
+      "sha256": "72a1da4eccbdad6c505bb41b7fb31ad0adf68afbeffc860bc250772c5bf7a9b0"
+    },
+    {
+      "path": "installer-20261102-232744/build-manifest.json",
+      "size": 209868,
+      "sha256": "566d8af93ac5429820f22a59da043939cfd80932ba2683309f80e5628b3bd42b"
+    },
+    {
+      "path": "installer-20261102-232744/WFCompanion-0.1.33-Setup.exe.sha256",
+      "size": 96,
+      "sha256": "786ed7f0e9ff08e5c0674d64fc263dc14d8a51a0a2f161bc19d1dfb0b96a5998"
+    },
+    {
+      "path": "installer-20261102-232744/WFCompanion-Setup.exe",
+      "size": 46949613,
+      "sha256": "72a1da4eccbdad6c505bb41b7fb31ad0adf68afbeffc860bc250772c5bf7a9b0"
+    },
+    {
+      "path": "installer-20261102-232744/WFCompanion-Setup.exe.sha256",
+      "size": 89,
+      "sha256": "db6c3a4eeea28cbc5f642de18d53604cad3f655bb4618bec8923bb6b035ceda4"
+    },
+    {
+      "path": "source-commit.txt",
+      "size": 42,
+      "sha256": "f73f74bbd2572d1294176952f47b93782e83bbdbcbaa89e511aa97fc8910c393"
+    }
+  ],
+  "candidate_member": "installer-20261102-232744/WFCompanion-0.1.33-Setup.exe",
+  "invocations": {
+    "fresh": "56331b3cf9b64f4c85adf6cb9d15962c",
+    "replacement": "fe459d3fef2240f29b2938ab272a421e"
+  },
+  "lanes": {
+    "fresh": {
+      "cases": [
+        "F1",
+        "N1"
+      ],
+      "operations": [
+        "candidate install",
+        "keep-data uninstall"
+      ],
+      "installer_operation_count": 2
+    },
+    "replacement": {
+      "cases": [
+        "R1",
+        "N1"
+      ],
+      "operations": [
+        "released install",
+        "candidate same-version replacement",
+        "keep-data uninstall",
+        "candidate reinstall",
+        "keep-data uninstall"
+      ],
+      "installer_operation_count": 5
+    }
+  },
+  "operation_total": 7,
+  "host": "windows-2025",
+  "limits": {
+    "job_minutes": 45,
+    "setup_step_minutes": 10,
+    "controller_step_minutes": 20,
+    "controller_monotonic_seconds": 1200,
+    "installer_operation_seconds": 180,
+    "watchdog_arm_seconds": 15,
+    "collector_step_minutes": 2,
+    "upload_step_minutes": 8,
+    "reserve_minutes": 5,
+    "evidence_bytes": 52428800,
+    "evidence_files": 100,
+    "file_bytes": 5242880
+  },
+  "retries": "none; reject GITHUB_RUN_ATTEMPT != 1",
+  "scheduling": "two jobs, replacement needs successful fresh job",
+  "not_claimed": [
+    "genuine version upgrade",
+    "Windows 10",
+    "transient application startup observation",
+    "visible desktop",
+    "destructive uninstall",
+    "native recovery functionality",
+    "complete independent native DLL inventory"
+  ]
+}
