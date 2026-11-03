@@ -8,3 +8,9 @@ tools/offline_preview/theme_art/public_fonts/* -text -diff
 
 # Preserve the exact historical writer bytes checked by the schema-1 regression.
 /tools/distribution/fixtures/addon_configuration_schema1.py -text
+
+# Hosted lifecycle authentication compares exact reviewed bytes on Windows.
+/.github/workflows/windows-build.yml text eol=lf
+/tools/installer-lifecycle/prepare_hosted.py text eol=lf
+/tools/installer-lifecycle/execution-plan.json text eol=lf
+/tools/installer-lifecycle/execution-capsule.zip -text
