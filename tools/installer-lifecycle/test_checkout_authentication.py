@@ -12,9 +12,12 @@ import os
 import subprocess
 import sys
 import unittest
+import io
+import zipfile
 
 REPO = Path(__file__).resolve().parents[2]
-BASE = 'd6959a946af0930cdf624e04a7b31b45fef3df8f'
+BASE = '273a807072997bcdd66e6401c69d6baf7fddbca3'
+LEGACY_BASE = 'd6959a946af0930cdf624e04a7b31b45fef3df8f'
 PATHS = ('.github/workflows/windows-build.yml',
          'tools/installer-lifecycle/prepare_hosted.py',
          'tools/installer-lifecycle/execution-plan.json',
@@ -120,7 +123,7 @@ class CheckoutTests(unittest.TestCase):
         return target
 
     def test_legacy_windows_checkout_reproduces_both_failures(self):
-        seed = self.seed('legacy-seed', git(REPO, 'show', BASE + ':.gitattributes'))
+        seed = self.seed('legacy-seed', git(REPO, 'show', LEGACY_BASE + ':.gitattributes'))
         target = self.checkout(seed, 'legacy-checkout', 'true', 'native')
         rows = []
         for path in PATHS[1:3]:
@@ -154,25 +157,38 @@ class CheckoutTests(unittest.TestCase):
                         self.assertEqual(records, [])
         (ROOT / 'checkout-matrix.json').write_text(json.dumps(rows, indent=2), encoding='utf-8')
 
-    def test_only_authentication_steps_change_in_workflow(self):
-        before = json.loads(git(REPO, 'show', BASE + ':' + PATHS[0]))
-        after = json.loads((REPO / PATHS[0]).read_bytes())
+    def test_only_derived_pins_change_in_workflow(self):
+        before = git(REPO, 'show', BASE + ':' + PATHS[0])
+        old_plan_raw = git(REPO, 'show', BASE + ':' + PATHS[2])
+        new_plan_raw = (REPO / PATHS[2]).read_bytes()
+        old_plan, new_plan = json.loads(old_plan_raw), json.loads(new_plan_raw)
+        pins = {digest(old_plan_raw): digest(new_plan_raw),
+                old_plan['capsule']['sha256']: new_plan['capsule']['sha256'],
+                old_plan['capsule_manifest_sha256']: new_plan['capsule_manifest_sha256']}
+        for old, new in zip(old_plan['runtime_sources'], new_plan['runtime_sources']):
+            self.assertEqual(old['path'], new['path'])
+            pins[old['sha256']] = new['sha256']
+        expected = before
+        for old, new in pins.items():
+            expected = expected.replace(old.encode(), new.encode())
+        for old, new in ((len(old_plan_raw), len(new_plan_raw)),
+                         (old_plan['capsule']['size'], new_plan['capsule']['size'])):
+            expected = expected.replace(f'-ExpectedSize {old}\\n'.encode(), f'-ExpectedSize {new}\\n'.encode())
+        self.assertEqual((REPO / PATHS[0]).read_bytes(), expected)
         for lane in ('fresh', 'replacement'):
-            old = before['jobs'][lane]['steps'][2]['run']
-            function, suffix = body(after, lane)
-            self.assertIn('WF_CHECKOUT_FAILURE ', function)
-            self.assertEqual(suffix.splitlines()[-2:], old.splitlines()[-2:])
+            _, suffix = body(self.workflow, lane)
             for path in PATHS[1:]:
                 raw = (REPO / path).read_bytes()
-                self.assertIn("-Name '" + Path(path).name + "'", suffix)
                 self.assertIn("-ExpectedHash '" + digest(raw) + "'", suffix)
                 self.assertIn('-ExpectedSize ' + str(len(raw)), suffix)
-            after['jobs'][lane]['steps'][2]['run'] = old
-        self.assertEqual(after, before)
 
-    def test_existing_pinned_inputs_and_capsule_are_unchanged(self):
-        for path in PATHS[1:]:
-            self.assertEqual((REPO / path).read_bytes(), git(REPO, 'show', BASE + ':' + path))
+    def test_bootstrap_and_nonruntime_capsule_members_are_unchanged(self):
+        self.assertEqual((REPO / PATHS[1]).read_bytes(), git(REPO, 'show', BASE + ':' + PATHS[1]))
+        with zipfile.ZipFile(io.BytesIO(git(REPO, 'show', BASE + ':' + PATHS[3]))) as old, zipfile.ZipFile(REPO / PATHS[3]) as new:
+            self.assertEqual(old.namelist(), new.namelist())
+            changed = {name for name in old.namelist() if old.read(name) != new.read(name)}
+            self.assertEqual(changed, {'SOURCE_MANIFEST.json', 'harness/common.ps1',
+                                       'harness/controller.ps1', 'harness/guest.ps1'})
 
     def test_corruption_and_wrong_size_are_rejected(self):
         self.rejected(b'changed', digest(b'original'), len(b'original'))

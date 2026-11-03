@@ -11,10 +11,10 @@
   "full_source_manifest_sha256": "4ac7f4a43d53fbed4aea8fc2033bbac2991c91e534d9bb215c346732305a4956",
   "capsule": {
     "file": "execution-capsule.zip",
-    "size": 56172,
-    "sha256": "3149cd016b22d246cab297b281984b0693dfd2e8ef325ec6529fa2a057351482"
+    "size": 58177,
+    "sha256": "4e86570f278749911186f03663752729a97924f7b5a9687a8504156221fd3ff6"
   },
-  "capsule_manifest_sha256": "29c381125dde0ff53f927e3e6da987ed0acc276405454add7caa62f9d2711c4d",
+  "capsule_manifest_sha256": "f0ef65298d917237b92bded8e8d6380c5a90021b8c9f19a41b77be92bbd1b420",
   "runtime_sources": [
     {
       "path": "harness/collect.ps1",
@@ -23,18 +23,18 @@
     },
     {
       "path": "harness/common.ps1",
-      "size": 17066,
-      "sha256": "f145dfd880b17074e8c640a738ac4d5c1bafcf6469045ac4899aca81da7a9daf"
+      "size": 21037,
+      "sha256": "50cdf3fa52f612a949cb3510ca58beae15dbc58fc6aba2b78d18649aa329002c"
     },
     {
       "path": "harness/controller.ps1",
-      "size": 11866,
-      "sha256": "348c10367abe090b2651d3464733070b0f5eabe8656f5108475f9e15342804b7"
+      "size": 13066,
+      "sha256": "bf78d2c61dc4835a40bd013e6e874edcd914e03b01e7fd550a39b5cb767c69df"
     },
     {
       "path": "harness/guest.ps1",
-      "size": 12997,
-      "sha256": "7c788b605d12ef54f19c33cbbc2364223f0a46ba7307ba59a5b2efc18db449c6"
+      "size": 14424,
+      "sha256": "ce4ec9ef6ec90173ed825d28f219fe1a03f816b869fe84d5a5b7ff6933957407"
     },
     {
       "path": "harness/host_guard.ps1",
